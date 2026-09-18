@@ -1,0 +1,5 @@
+root = true
+
+# C++ 관련 소스 파일에 대해 강제 적용
+[*.{cpp,h,fs,vs,glsl,hlsl}]
+charset = utf-8-bom
