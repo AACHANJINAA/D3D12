@@ -1,53 +1,44 @@
-# Base MD
+# D3D12 Engine Guide
 
-게임 개발 프로젝트를 AI와 함께 진행하기 위한 기본 문서 템플릿입니다.
+C++ / Direct3D 12 기반 3D 그래픽스 엔진의 설계와 구현 기준입니다.
+Forward로 시작하고 불투명 렌더링을 패스 단위로 Deferred로 확장합니다.
+Manager는 시스템 수명과 실행 순서, Component는 장면 데이터와 기능을 담당합니다.
 
-이 구조의 목표는 AI가 매 작업마다 모든 문서를 읽지 않도록 하고, 사용자가 `docs/PLAY_REQUEST.md`로 작업 범위와 참조 문서를 먼저 지정해 토큰 사용을 줄이는 것입니다.
+## 현재 상태
 
-## 기본 구조
+엔진 코드는 아직 없습니다. 기존 D3D12.slnx와 D3D12/D3D12.vcxproj를 사용합니다.
+프로젝트 설정은 C++20, MSVC v145, Windows SDK 10.0입니다.
+도구 설치와 빌드는 미검증이며 우선 대상은 Debug / x64입니다.
+현재 루트는 Git 저장소가 아닙니다.
 
-```text
-GDD/
-  Game_GDD.md
-  Implemention_Plan.md
+## 문서 안내
 
-docs/
-  AI_USAGE.md
-  PLAY_REQUEST.md
-  WORKFLOW.md
-  ARCHITECTURE.md
-  PLANS.md
-  GAME_RULES.md
-  Verify.md
-  DECISIONS.md
-```
+| 문서 | 책임 |
+| --- | --- |
+| [Engine Design](GDD/Game_GDD.md) | 엔진 목표와 데모 범위 |
+| [Implementation Plan](GDD/Implemention_Plan.md) | 마일스톤과 완료 기준 |
+| [Architecture](docs/ARCHITECTURE.md) | 모듈, 소유권, 렌더 패스 |
+| [Plans](docs/PLANS.md) | 현재 상태와 다음 작업 |
+| [Verification](docs/Verify.md) | 빌드와 실행 검증 |
+| [Decisions](docs/DECISIONS.md) | 확정 결정 |
+| [Work Request](docs/PLAY_REQUEST.md) | 작업 범위 |
+| [AI Usage](docs/AI_USAGE.md) | 최소 참조 규칙 |
+| [Workflow](docs/WORKFLOW.md) | 진행과 갱신 절차 |
 
-## 사용 흐름
+최신 사용자 요청이 문서보다 우선합니다. 요청서 작성은 선택 사항입니다.
+확정 방향, 제안 기본값, 구현 상태, 검증 결과를 구분합니다.
+Implemention_Plan.md 파일명은 기존 링크 호환성을 위해 유지합니다.
 
-1. 새 작업이 생기면 `docs/PLAY_REQUEST.md`에 작업 요청을 정리합니다.
-2. AI는 먼저 `docs/PLAY_REQUEST.md`만 확인합니다.
-3. 참조 문서가 지정되어 있으면 그 문서만 우선 확인합니다.
-4. 참조 문서가 비어 있으면 `docs/AI_USAGE.md`의 작업 유형별 최소 참조 규칙을 따릅니다.
-5. 작업 후 필요한 문서만 갱신합니다.
-6. 완료 이력은 커밋으로 남기고, 이후 작업에 영향을 주는 결정만 `docs/DECISIONS.md`에 기록합니다.
+## C++ 코드 컨벤션
 
-## 주요 문서
+- 클래스명은 대문자로 작성합니다. 예: `RENDERMANAGER`, `FORWARDPASS`.
+- 일반 변수명은 소문자로 작성합니다. 여러 단어는 언더스코어로 구분합니다.
+- `bool` 변수명은 `is`를 접두사로 사용합니다. 예: `isinitialized`, `isvisible`.
+- 멤버 변수명은 이름 앞에 `_`를 붙입니다. 예: `_device`, `_frame_index`.
+- 함수명은 소문자로 작성합니다. 합성어는 언더스코어로 구분합니다. 예: `create_device`, `record_commands`.
+- 기존 코드와 충돌하는 경우 새 코드부터 이 규칙을 적용하고, 무관한 코드는 함께 개명하지 않습니다.
 
-- `docs/PLAY_REQUEST.md`: 사용자가 AI에게 전달하는 작업 요청서입니다.
-- `docs/AI_USAGE.md`: AI가 문서를 적게 읽고 필요한 범위만 확인하기 위한 규칙입니다.
-- `docs/WORKFLOW.md`: 작업 진행 순서와 사용자 확인이 필요한 지점을 정의합니다.
-- `docs/DECISIONS.md`: 반복해서 확인할 필요가 있는 확정 결정을 짧게 기록합니다.
-- `GDD/Game_GDD.md`: 게임 컨셉, 목표 경험, 핵심 기획을 정리합니다.
-- `GDD/Implemention_Plan.md`: 기획을 실제 구현 순서와 마일스톤으로 나눕니다.
-- `docs/PLANS.md`: 현재 작업 상태, 다음 작업, 보류 작업을 관리합니다.
-- `docs/ARCHITECTURE.md`: 폴더, 코드, 에셋, 씬의 책임 범위를 정리합니다.
-- `docs/GAME_RULES.md`: 플레이 판정, 점수, 승패, 턴, 밸런스 규칙을 기록합니다.
-- `docs/Verify.md`: 구현 후 확인할 검증 항목과 완료 기준을 정리합니다.
+## 빌드 확인
 
-## 운영 원칙
-
-- 모든 문서를 자동으로 읽지 않습니다.
-- 작업 요청서에 적힌 참조 문서와 수정 허용 범위를 우선합니다.
-- 큰 구조 변경, 여러 문서 동시 수정, 새 시스템 추가 전에는 사용자 확인을 거칩니다.
-- 로그 문서는 따로 두지 않고 커밋 기록을 완료 이력으로 사용합니다.
-- `DECISIONS.md`에는 작업 내역 전체가 아니라 앞으로의 개발 방향에 영향을 주는 결정만 남깁니다.
+빌드와 실행 확인은 사용자가 직접 수행합니다. AI는 코드와 프로젝트 설정을 작성한 뒤,
+실행하지 않은 빌드·화면 출력·GPU 검증을 성공으로 기록하지 않습니다.
