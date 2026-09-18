@@ -1,6 +1,5 @@
-#include "Renderer.h"
-
-#include <cstdlib>
+#include "../Common/stdafx.h"
+#include "../Renderer/Renderer.h"
 
 int main()
 {
