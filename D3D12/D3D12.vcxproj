@@ -235,6 +235,11 @@
     <ClInclude Include="Common\Math.h" />
     <ClInclude Include="Common\D3DX12.h" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="Renderer\Shader\Triangle.hlsl">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
   <ItemDefinitionGroup>
     <ClCompile>
       <PrecompiledHeader>Use</PrecompiledHeader>

@@ -39,4 +39,12 @@
       <Filter>헤더 파일</Filter>
     </ClInclude>
   </ItemGroup>
+  <ItemGroup>
+    <None Include="Renderer\Shader\TriangleVS.hlsl">
+      <Filter>리소스 파일</Filter>
+    </None>
+    <None Include="Renderer\Shader\TrianglePS.hlsl">
+      <Filter>리소스 파일</Filter>
+    </None>
+  </ItemGroup>
 </Project>

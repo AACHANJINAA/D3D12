@@ -16,24 +16,48 @@ namespace
         { { -0.5f, -0.5f, 0.0f }, { 0.0f, 0.0f, 1.0f, 1.0f } }
     };
 
-    constexpr char vertex_shader_code[] = R"(
-        struct VERTEX_INPUT { float3 position : POSITION; float4 color : COLOR; };
-        struct VERTEX_OUTPUT { float4 position : SV_POSITION; float4 color : COLOR; };
-        VERTEX_OUTPUT main(VERTEX_INPUT input)
+    std::filesystem::path get_shader_path(const wchar_t* file_name)
+    {
+        wchar_t module_path[MAX_PATH]{};
+        const DWORD path_length = GetModuleFileNameW(nullptr, module_path, _countof(module_path));
+        if (path_length == 0)
         {
-            VERTEX_OUTPUT output;
-            output.position = float4(input.position, 1.0f);
-            output.color = input.color;
-            return output;
+            return {};
         }
-    )";
 
-    constexpr char pixel_shader_code[] = R"(
-        float4 main(float4 position : SV_POSITION, float4 color : COLOR) : SV_TARGET
+        return std::filesystem::path(std::wstring(module_path, path_length)).parent_path() /
+            L"Renderer" / L"Shader" / file_name;
+    }
+
+    bool compile_shader(
+        const wchar_t* file_name,
+        const char* entry_point,
+        const char* target,
+        ComPtr<ID3DBlob>& shader)
+    {
+        const std::filesystem::path shader_path = get_shader_path(file_name);
+        if (shader_path.empty())
         {
-            return color;
+            return false;
         }
-    )";
+
+        ComPtr<ID3DBlob> shader_error;
+        UINT compile_flags = 0;
+#if defined(_DEBUG)
+        compile_flags = D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
+#endif
+
+        return SUCCEEDED(D3DCompileFromFile(
+            shader_path.c_str(),
+            nullptr,
+            D3D_COMPILE_STANDARD_FILE_INCLUDE,
+            entry_point,
+            target,
+            compile_flags,
+            0,
+            &shader,
+            &shader_error));
+    }
 }
 
 constexpr wchar_t RENDERER::window_class_name[];
@@ -199,16 +223,8 @@ bool RENDERER::create_pipeline()
 {
     ComPtr<ID3DBlob> vertex_shader;
     ComPtr<ID3DBlob> pixel_shader;
-    ComPtr<ID3DBlob> shader_error;
-    if (FAILED(D3DCompile(vertex_shader_code, std::strlen(vertex_shader_code), 
-        nullptr, nullptr, nullptr,
-        "main", "vs_5_0", D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION, 0,
-        &vertex_shader, &shader_error)) 
-        || 
-        FAILED(D3DCompile(pixel_shader_code, std::strlen(pixel_shader_code), 
-        nullptr, nullptr, nullptr,
-        "main", "ps_5_0", D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION, 0,
-        &pixel_shader, &shader_error)))
+    if (!compile_shader(L"Triangle.hlsl", "VS_Triangle", "vs_5_0", vertex_shader) ||
+        !compile_shader(L"Triangle.hlsl", "PS_Triangle", "ps_5_0", pixel_shader))
     {
         return false;
     }
@@ -216,8 +232,9 @@ bool RENDERER::create_pipeline()
     D3D12_ROOT_SIGNATURE_DESC root_signature_description{};
     root_signature_description.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
     ComPtr<ID3DBlob> serialized_root_signature;
+    ComPtr<ID3DBlob> root_signature_error;
     if (FAILED(D3D12SerializeRootSignature(&root_signature_description, D3D_ROOT_SIGNATURE_VERSION_1,
-        &serialized_root_signature, &shader_error)) 
+        &serialized_root_signature, &root_signature_error)) 
         ||
         FAILED(_device->CreateRootSignature(0, serialized_root_signature->GetBufferPointer(),
         serialized_root_signature->GetBufferSize(), IID_PPV_ARGS(&_root_signature))))

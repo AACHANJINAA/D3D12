@@ -6,6 +6,8 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <filesystem>
+#include <string>
 
 #include <d3d12.h>
 #include <d3dcompiler.h>
