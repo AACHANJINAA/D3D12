@@ -40,10 +40,7 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="Renderer\Shader\TriangleVS.hlsl">
-      <Filter>리소스 파일</Filter>
-    </None>
-    <None Include="Renderer\Shader\TrianglePS.hlsl">
+    <None Include="Renderer\Shader\Triangle.hlsl">
       <Filter>리소스 파일</Filter>
     </None>
   </ItemGroup>
