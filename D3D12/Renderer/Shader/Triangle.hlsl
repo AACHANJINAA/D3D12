@@ -1,3 +1,8 @@
+cbuffer OBJECT_DATA : register(b0)
+{
+    row_major float4x4 transform;
+};
+
 struct VERTEX_INPUT
 {
     float3 position : POSITION;
@@ -13,7 +18,7 @@ struct VERTEX_OUTPUT
 VERTEX_OUTPUT VS_Triangle(VERTEX_INPUT input)
 {
     VERTEX_OUTPUT output;
-    output.position = float4(input.position, 1.0f);
+    output.position = mul(float4(input.position, 1.0f), transform);
     output.color = input.color;
     return output;
 }
