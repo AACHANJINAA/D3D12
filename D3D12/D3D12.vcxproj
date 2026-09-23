@@ -228,10 +228,22 @@
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>..\Common\stdafx.h</PrecompiledHeaderFile>
     </ClCompile>
+    <ClCompile Include="Renderer\Pipeline.cpp" />
+    <ClCompile Include="Renderer\Manager\CameraManager.cpp">
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>..\..\Common\stdafx.h</PrecompiledHeaderFile>
+    </ClCompile>
+    <ClCompile Include="Renderer\Manager\InputManager.cpp">
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>..\..\Common\stdafx.h</PrecompiledHeaderFile>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Common\stdafx.h" />
     <ClInclude Include="Renderer\Renderer.h" />
+    <ClInclude Include="Renderer\Pipeline.h" />
+    <ClInclude Include="Renderer\Manager\CameraManager.h" />
+    <ClInclude Include="Renderer\Manager\InputManager.h" />
     <ClInclude Include="Common\Math.h" />
     <ClInclude Include="Common\D3DX12.h" />
   </ItemGroup>

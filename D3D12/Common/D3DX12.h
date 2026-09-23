@@ -24,6 +24,35 @@ struct CD3DX12_DESCRIPTOR_HEAP_DESC : public D3D12_DESCRIPTOR_HEAP_DESC
     }
 };
 
+struct CD3DX12_ROOT_PARAMETER : public D3D12_ROOT_PARAMETER
+{
+    CD3DX12_ROOT_PARAMETER(
+        D3D12_ROOT_PARAMETER_TYPE type,
+        UINT shader_register,
+        D3D12_SHADER_VISIBILITY visibility)
+    {
+        ParameterType = type;
+        Descriptor.ShaderRegister = shader_register;
+        Descriptor.RegisterSpace = 0;
+        ShaderVisibility = visibility;
+    }
+};
+
+struct CD3DX12_ROOT_SIGNATURE_DESC : public D3D12_ROOT_SIGNATURE_DESC
+{
+    CD3DX12_ROOT_SIGNATURE_DESC(
+        UINT parameter_count,
+        const D3D12_ROOT_PARAMETER* parameters,
+        D3D12_ROOT_SIGNATURE_FLAGS flags)
+    {
+        NumParameters = parameter_count;
+        pParameters = parameters;
+        NumStaticSamplers = 0;
+        pStaticSamplers = nullptr;
+        Flags = flags;
+    }
+};
+
 struct CD3DX12_HEAP_PROPERTIES : public D3D12_HEAP_PROPERTIES
 {
     explicit CD3DX12_HEAP_PROPERTIES(D3D12_HEAP_TYPE type)

@@ -9,55 +9,28 @@ namespace
         float color[4];
     };
 
-    constexpr VERTEX triangle_vertices[] =
+    constexpr VERTEX cube_vertices[] =
     {
-        { { 0.0f, 0.5f, 0.0f }, { 1.0f, 0.0f, 0.0f, 1.0f } },
-        { { 0.5f, -0.5f, 0.0f }, { 0.0f, 1.0f, 0.0f, 1.0f } },
-        { { -0.5f, -0.5f, 0.0f }, { 0.0f, 0.0f, 1.0f, 1.0f } }
+        { { -0.45f, -0.45f, 0.25f }, { 1.0f, 0.0f, 0.0f, 1.0f } },
+        { { -0.45f,  0.45f, 0.25f }, { 0.0f, 1.0f, 0.0f, 1.0f } },
+        { {  0.45f,  0.45f, 0.25f }, { 0.0f, 0.0f, 1.0f, 1.0f } },
+        { {  0.45f, -0.45f, 0.25f }, { 1.0f, 1.0f, 0.0f, 1.0f } },
+        { { -0.45f, -0.45f, 0.75f }, { 1.0f, 0.0f, 1.0f, 1.0f } },
+        { { -0.45f,  0.45f, 0.75f }, { 0.0f, 1.0f, 1.0f, 1.0f } },
+        { {  0.45f,  0.45f, 0.75f }, { 1.0f, 1.0f, 1.0f, 1.0f } },
+        { {  0.45f, -0.45f, 0.75f }, { 0.25f, 0.25f, 0.25f, 1.0f } }
     };
 
-    std::filesystem::path get_shader_path(const wchar_t* file_name)
+    constexpr uint16_t cube_indices[] =
     {
-        wchar_t module_path[MAX_PATH]{};
-        const DWORD path_length = GetModuleFileNameW(nullptr, module_path, _countof(module_path));
-        if (path_length == 0)
-        {
-            return {};
-        }
+        0, 1, 2, 0, 2, 3,
+        4, 6, 5, 4, 7, 6,
+        0, 4, 5, 0, 5, 1,
+        3, 2, 6, 3, 6, 7,
+        1, 5, 6, 1, 6, 2,
+        0, 3, 7, 0, 7, 4
+    };
 
-        return std::filesystem::path(std::wstring(module_path, path_length)).parent_path() /
-            L"Renderer" / L"Shader" / file_name;
-    }
-
-    bool compile_shader(
-        const wchar_t* file_name,
-        const char* entry_point,
-        const char* target,
-        ComPtr<ID3DBlob>& shader)
-    {
-        const std::filesystem::path shader_path = get_shader_path(file_name);
-        if (shader_path.empty())
-        {
-            return false;
-        }
-
-        ComPtr<ID3DBlob> shader_error;
-        UINT compile_flags = 0;
-#if defined(_DEBUG)
-        compile_flags = D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
-#endif
-
-        return SUCCEEDED(D3DCompileFromFile(
-            shader_path.c_str(),
-            nullptr,
-            D3D_COMPILE_STANDARD_FILE_INCLUDE,
-            entry_point,
-            target,
-            compile_flags,
-            0,
-            &shader,
-            &shader_error));
-    }
 }
 
 constexpr wchar_t RENDERER::window_class_name[];
@@ -76,7 +49,8 @@ bool RENDERER::initialize(HINSTANCE instance, int show_command)
     }
 
     return initialize_device() && create_command_objects() && create_swap_chain() &&
-        create_render_targets() && create_pipeline() && create_vertex_buffer() && create_fence();
+        create_render_targets() && _pipeline.initialize(_device.Get()) && create_vertex_buffer() &&
+        create_constant_buffer() && create_fence();
 }
 
 int RENDERER::run()
@@ -219,60 +193,10 @@ bool RENDERER::create_render_targets()
     return true;
 }
 
-bool RENDERER::create_pipeline()
-{
-    ComPtr<ID3DBlob> vertex_shader;
-    ComPtr<ID3DBlob> pixel_shader;
-    if (!compile_shader(L"Triangle.hlsl", "VS_Triangle", "vs_5_0", vertex_shader) ||
-        !compile_shader(L"Triangle.hlsl", "PS_Triangle", "ps_5_0", pixel_shader))
-    {
-        return false;
-    }
-
-    D3D12_ROOT_SIGNATURE_DESC root_signature_description{};
-    root_signature_description.Flags = D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT;
-    ComPtr<ID3DBlob> serialized_root_signature;
-    ComPtr<ID3DBlob> root_signature_error;
-    if (FAILED(D3D12SerializeRootSignature(&root_signature_description, D3D_ROOT_SIGNATURE_VERSION_1,
-        &serialized_root_signature, &root_signature_error)) 
-        ||
-        FAILED(_device->CreateRootSignature(0, serialized_root_signature->GetBufferPointer(),
-        serialized_root_signature->GetBufferSize(), IID_PPV_ARGS(&_root_signature))))
-    {
-        return false;
-    }
-
-    D3D12_INPUT_ELEMENT_DESC input_elements[] =
-    {
-        { "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0,
-            D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-        { "COLOR", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 12,
-            D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
-    };
-    
-    D3D12_GRAPHICS_PIPELINE_STATE_DESC pipeline_description{};
-    pipeline_description.InputLayout = { input_elements, _countof(input_elements) };
-    pipeline_description.pRootSignature = _root_signature.Get();
-    pipeline_description.VS = { vertex_shader->GetBufferPointer(), vertex_shader->GetBufferSize() };
-    pipeline_description.PS = { pixel_shader->GetBufferPointer(), pixel_shader->GetBufferSize() };
-    pipeline_description.RasterizerState = CD3DX12_RASTERIZER_DESC();
-    pipeline_description.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
-    pipeline_description.BlendState = CD3DX12_BLEND_DESC();
-    pipeline_description.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC();
-    pipeline_description.DepthStencilState.DepthEnable = FALSE;
-    pipeline_description.DepthStencilState.StencilEnable = FALSE;
-    pipeline_description.SampleMask = UINT_MAX;
-    pipeline_description.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
-    pipeline_description.NumRenderTargets = 1;
-    pipeline_description.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
-    pipeline_description.SampleDesc.Count = 1;
-    return SUCCEEDED(_device->CreateGraphicsPipelineState(&pipeline_description, IID_PPV_ARGS(&_pipeline_state)));
-}
-
 bool RENDERER::create_vertex_buffer()
 {
     const CD3DX12_HEAP_PROPERTIES heap_properties(D3D12_HEAP_TYPE_UPLOAD);
-    const CD3DX12_RESOURCE_DESC resource_description = CD3DX12_RESOURCE_DESC::buffer(sizeof(triangle_vertices));
+    const CD3DX12_RESOURCE_DESC resource_description = CD3DX12_RESOURCE_DESC::buffer(sizeof(cube_vertices));
     if (FAILED(_device->CreateCommittedResource(&heap_properties, D3D12_HEAP_FLAG_NONE,
         &resource_description, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr,
         IID_PPV_ARGS(&_vertex_buffer))))
@@ -284,11 +208,53 @@ bool RENDERER::create_vertex_buffer()
     {
         return false;
     }
-    std::memcpy(mapped_data, triangle_vertices, sizeof(triangle_vertices));
+    std::memcpy(mapped_data, cube_vertices, sizeof(cube_vertices));
     _vertex_buffer->Unmap(0, nullptr);
     _vertex_buffer_view.BufferLocation = _vertex_buffer->GetGPUVirtualAddress();
     _vertex_buffer_view.StrideInBytes = sizeof(VERTEX);
-    _vertex_buffer_view.SizeInBytes = sizeof(triangle_vertices);
+    _vertex_buffer_view.SizeInBytes = sizeof(cube_vertices);
+
+    const CD3DX12_RESOURCE_DESC index_description = CD3DX12_RESOURCE_DESC::buffer(sizeof(cube_indices));
+    if (FAILED(_device->CreateCommittedResource(&heap_properties, D3D12_HEAP_FLAG_NONE,
+        &index_description, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr,
+        IID_PPV_ARGS(&_index_buffer))))
+    {
+        return false;
+    }
+
+    INPUT_MANAGER::get_instance().initialize(_window);
+    CAMERA_MANAGER::get_instance().initialize();
+    mapped_data = nullptr;
+    if (FAILED(_index_buffer->Map(0, nullptr, &mapped_data)))
+    {
+        return false;
+    }
+    std::memcpy(mapped_data, cube_indices, sizeof(cube_indices));
+    _index_buffer->Unmap(0, nullptr);
+    _index_buffer_view.BufferLocation = _index_buffer->GetGPUVirtualAddress();
+    _index_buffer_view.SizeInBytes = sizeof(cube_indices);
+    _index_buffer_view.Format = DXGI_FORMAT_R16_UINT;
+    return true;
+}
+
+bool RENDERER::create_constant_buffer()
+{
+    const CD3DX12_HEAP_PROPERTIES heap_properties(D3D12_HEAP_TYPE_UPLOAD);
+    const CD3DX12_RESOURCE_DESC description = CD3DX12_RESOURCE_DESC::buffer(
+        D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
+    if (FAILED(_device->CreateCommittedResource(&heap_properties, D3D12_HEAP_FLAG_NONE,
+        &description, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr,
+        IID_PPV_ARGS(&_constant_buffer))))
+    {
+        return false;
+    }
+
+    void* mapped_data = nullptr;
+    if (FAILED(_constant_buffer->Map(0, nullptr, &mapped_data)))
+    {
+        return false;
+    }
+    _constant_data = static_cast<UINT8*>(mapped_data);
     return true;
 }
 
@@ -304,8 +270,18 @@ bool RENDERER::create_fence()
 
 void RENDERER::render_frame()
 {
+    static ULONGLONG last_frame_time = GetTickCount64();
+    const ULONGLONG current_time = GetTickCount64();
+    const float delta_time = (std::min)(
+        static_cast<float>(current_time - last_frame_time) / 1000.0f, 0.1f);
+    last_frame_time = current_time;
+    INPUT_MANAGER::get_instance().update();
+    CAMERA_MANAGER::get_instance().update(delta_time);
+    const MATH::MATRIX4X4 transform = CAMERA_MANAGER::get_instance().get_view_projection(1280.0f / 720.0f);
+    std::memcpy(_constant_data, &transform, sizeof(transform));
+
     _command_allocator->Reset();
-    _command_list->Reset(_command_allocator.Get(), _pipeline_state.Get());
+    _command_list->Reset(_command_allocator.Get(), _pipeline.get_pipeline());
     
     const CD3DX12_RESOURCE_BARRIER to_render_target = CD3DX12_RESOURCE_BARRIER::transition(
         _render_targets[_frame_index].Get(),
@@ -322,10 +298,14 @@ void RENDERER::render_frame()
     D3D12_RECT scissor_rect{ 0, 0, 1280, 720 };
     _command_list->RSSetViewports(1, &viewport);
     _command_list->RSSetScissorRects(1, &scissor_rect);
-    _command_list->SetGraphicsRootSignature(_root_signature.Get());
+    _command_list->SetGraphicsRootSignature(_pipeline.get_root_signature());
+    _command_list->SetGraphicsRootConstantBufferView(0, _constant_buffer->GetGPUVirtualAddress());
     _command_list->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     _command_list->IASetVertexBuffers(0, 1, &_vertex_buffer_view);
-    _command_list->DrawInstanced(3, 1, 0, 0);
+    _command_list->IASetIndexBuffer(&_index_buffer_view);
+    _command_list->DrawIndexedInstanced(36, 1, 0, 0, 0);
+    _command_list->SetPipelineState(_pipeline.get_wireframe_pipeline());
+    _command_list->DrawIndexedInstanced(36, 1, 0, 0, 0);
     const CD3DX12_RESOURCE_BARRIER to_present = CD3DX12_RESOURCE_BARRIER::transition(
         _render_targets[_frame_index].Get(),
         D3D12_RESOURCE_STATE_RENDER_TARGET,
@@ -370,9 +350,14 @@ void RENDERER::shutdown()
         CloseHandle(_fence_event);
         _fence_event = nullptr;
     }
+    if (_constant_buffer != nullptr && _constant_data != nullptr)
+    {
+        _constant_buffer->Unmap(0, nullptr);
+        _constant_data = nullptr;
+    }
+    _constant_buffer.Reset();
     _vertex_buffer.Reset();
-    _pipeline_state.Reset();
-    _root_signature.Reset();
+    _index_buffer.Reset();
     _command_list.Reset();
     _command_allocator.Reset();
     for (auto& render_target : _render_targets) render_target.Reset();
@@ -401,6 +386,7 @@ LRESULT CALLBACK RENDERER::window_procedure(HWND window, UINT message, WPARAM wp
         SetWindowLongPtrW(window, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(create_struct->lpCreateParams));
         return TRUE;
     }
+    INPUT_MANAGER::get_instance().process_message(message, wparam);
     if (message == WM_DESTROY)
     {
         PostQuitMessage(0);
