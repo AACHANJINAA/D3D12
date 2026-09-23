@@ -1,47 +1,6 @@
 #include "../Common/stdafx.h"
 #include "Pipeline.h"
-
-namespace
-{
-    std::filesystem::path get_shader_path(const wchar_t* file_name)
-    {
-        wchar_t module_path[MAX_PATH]{};
-        const DWORD path_length = GetModuleFileNameW(nullptr, module_path, _countof(module_path));
-        if (path_length == 0)
-        {
-            return {};
-        }
-        return std::filesystem::path(std::wstring(module_path, path_length)).parent_path() /
-            L"Renderer" / L"Shader" / file_name;
-    }
-
-    bool compile_shader(
-        const wchar_t* file_name,
-        const char* entry_point,
-        const char* target,
-        ComPtr<ID3DBlob>& shader)
-    {
-        const std::filesystem::path shader_path = get_shader_path(file_name);
-        if (shader_path.empty())
-        {
-            return false;
-        }
-
-        ComPtr<ID3DBlob> shader_error;
-        UINT compile_flags = 0;
-#if defined(_DEBUG)
-        compile_flags = D3DCOMPILE_DEBUG | D3DCOMPILE_SKIP_OPTIMIZATION;
-#endif
-        const HRESULT result = D3DCompileFromFile(
-            shader_path.c_str(), nullptr, D3D_COMPILE_STANDARD_FILE_INCLUDE,
-            entry_point, target, compile_flags, 0, &shader, &shader_error);
-        if (FAILED(result) && shader_error != nullptr)
-        {
-            OutputDebugStringA(static_cast<const char*>(shader_error->GetBufferPointer()));
-        }
-        return SUCCEEDED(result);
-    }
-}
+#include "Shader/Shader.h"
 
 bool PIPELINE::initialize(ID3D12Device* device)
 {
@@ -69,9 +28,9 @@ bool CUBE_PSO::initialize(ID3D12Device* device)
     ComPtr<ID3DBlob> vertex_shader;
     ComPtr<ID3DBlob> white_pixel_shader;
     ComPtr<ID3DBlob> black_pixel_shader;
-    if (!compile_shader(L"Triangle.hlsl", "VS_Triangle", "vs_5_0", vertex_shader) ||
-        !compile_shader(L"Triangle.hlsl", "PS_White", "ps_5_0", white_pixel_shader) ||
-        !compile_shader(L"Triangle.hlsl", "PS_Black", "ps_5_0", black_pixel_shader))
+    if (!SHADER::get_instance().compile_shader(L"Triangle.hlsl", "VS_Triangle", "vs_5_0", vertex_shader) ||
+        !SHADER::get_instance().compile_shader(L"Triangle.hlsl", "PS_White", "ps_5_0", white_pixel_shader) ||
+        !SHADER::get_instance().compile_shader(L"Triangle.hlsl", "PS_Black", "ps_5_0", black_pixel_shader))
     {
         return false;
     }
@@ -121,7 +80,7 @@ bool CUBE_PSO::initialize(ID3D12Device* device)
         return false;
     }
 
-    description.RasterizerState.FillMode = D3D12_FILL_MODE_WIREFRAME;
+    description.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
     description.PS = { black_pixel_shader->GetBufferPointer(), black_pixel_shader->GetBufferSize() };
     return SUCCEEDED(device->CreateGraphicsPipelineState(
         &description, IID_PPV_ARGS(&_wireframe_pipeline)));
