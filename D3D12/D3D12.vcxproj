@@ -228,12 +228,6 @@
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>..\Common\stdafx.h</PrecompiledHeaderFile>
     </ClCompile>
-    <ClCompile Include="Renderer\Window.cpp" />
-    <ClCompile Include="Renderer\Device.cpp" />
-    <ClCompile Include="Renderer\Command.cpp" />
-    <ClCompile Include="Renderer\SwapChain.cpp" />
-    <ClCompile Include="Renderer\Pipeline.cpp" />
-    <ClCompile Include="Renderer\Resource\Resource.cpp" />
     <ClCompile Include="Renderer\Shader\Shader.cpp">
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>..\..\Common\stdafx.h</PrecompiledHeaderFile>
@@ -242,12 +236,6 @@
   <ItemGroup>
     <ClInclude Include="Common\stdafx.h" />
     <ClInclude Include="Renderer\Renderer.h" />
-    <ClInclude Include="Renderer\Window.h" />
-    <ClInclude Include="Renderer\Device.h" />
-    <ClInclude Include="Renderer\Command.h" />
-    <ClInclude Include="Renderer\SwapChain.h" />
-    <ClInclude Include="Renderer\Pipeline.h" />
-    <ClInclude Include="Renderer\Resource\Resource.h" />
     <ClInclude Include="Common\Math.h" />
     <ClInclude Include="Common\D3DX12.h" />
     <ClInclude Include="Renderer\Shader\Shader.h" />
