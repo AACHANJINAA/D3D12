@@ -228,17 +228,12 @@
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>..\Common\stdafx.h</PrecompiledHeaderFile>
     </ClCompile>
-    <ClCompile Include="Renderer\Shader\Shader.cpp">
-      <PrecompiledHeader>Use</PrecompiledHeader>
-      <PrecompiledHeaderFile>..\..\Common\stdafx.h</PrecompiledHeaderFile>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Common\stdafx.h" />
     <ClInclude Include="Renderer\Renderer.h" />
     <ClInclude Include="Common\Math.h" />
     <ClInclude Include="Common\D3DX12.h" />
-    <ClInclude Include="Renderer\Shader\Shader.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Renderer\Shader\Triangle.hlsl">
