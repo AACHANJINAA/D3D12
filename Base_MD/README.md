@@ -15,7 +15,7 @@ Manager는 시스템 수명과 실행 순서, Component는 장면 데이터와 �
 
 | 문서 | 책임 |
 | --- | --- |
-| [Engine Design](GDD/Game_GDD.md) | 엔진 목표와 데모 범위 |
+| [Engine Design](GDD/Game_GDD.md) | 엔진 목표와 에디터 범위 |
 | [Implementation Plan](GDD/Implemention_Plan.md) | 마일스톤과 완료 기준 |
 | [Architecture](docs/ARCHITECTURE.md) | 모듈, 소유권, 렌더 패스 |
 | [Plans](docs/PLANS.md) | 현재 상태와 다음 작업 |

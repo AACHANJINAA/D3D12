@@ -10,10 +10,11 @@ D3D12/
   Engine/
     Core/       Application, Window, Timer, 오류 처리
     RHI/        D3D12Device, SwapChain, FrameContext, GPU 리소스
-    Renderer/   RenderManager, RenderContext, RenderPass, Passes/
+    Renderer/   RenderManager, RenderContext, RenderPass, GBuffer, Passes/
     Scene/      SceneManager, Scene, GameObject, Components/
-    Asset/      AssetManager, Mesh, Material, Texture
-    Shaders/    Triangle.hlsl, 이후 렌더 경로별 셰이더
+    Asset/      AssetManager, ModelImporter, Mesh, Material, Texture
+    Editor/     SceneView, Inspector, ResourceBrowser, DebugView
+    Shaders/    Geometry, DeferredLighting, Debug, Common
   App/
     main.cpp
 Base_MD/
@@ -29,6 +30,9 @@ RHI는 처음에는 Direct3D 12 전용 래퍼입니다. 범용 API 추상화는 
 | RenderManager | 프레임 시작 / 제출, 패스 순서와 렌더 경로 | RHI와 패스 소유 |
 | SceneManager | 활성 장면과 업데이트 | Scene 소유, M2 도입 |
 | AssetManager | 메시 / 재질 / 텍스처 캐시 | 에셋 소유, M3 도입 |
+| ModelImporter | glTF 파일을 엔진 Mesh / Material / Texture로 변환 | Import 결과 생성, AssetManager에 등록 |
+| LightManager | Light 데이터와 설정 관리 | 장면 Light 데이터 소유 |
+| Editor | Scene, Material, Light, Debug View 조작 | UI 상태 소유, 렌더러는 비소유 |
 | Scene / GameObject | 장면과 오브젝트 구성 | Scene이 오브젝트, 오브젝트가 Component 소유 |
 | Component | Transform, Camera, MeshRenderer 등 장면 상태 | GPU 큐나 SwapChain 직접 접근 금지 |
 | RenderPass | PSO 바인딩, draw / dispatch 기록 | 패스 전용 PSO와 리소스 소유 |
@@ -60,12 +64,13 @@ Pass는 엔진 논리 단위이며 D3D12 BeginRenderPass API를 강제하지 않
 | --- | --- |
 | M1 | ForwardPass -> 백버퍼 -> Present |
 | 확장 Forward | Shadow(선택) -> ForwardOpaque -> Transparent -> ToneMap -> Present |
-| 확장 Deferred | Shadow(선택) -> GBuffer -> DeferredLighting -> TransparentForward -> ToneMap -> Present |
+| 확장 Deferred | Shadow(선택) -> GBuffer -> DeferredLighting -> TransparentForward -> DebugView -> ToneMap -> Present |
 
 M1은 백버퍼에 직접 그립니다. HDR과 ToneMap은 M4에 도입합니다.
 M5에서 불투명 경로를 교체하고 투명 오브젝트는 우선 Forward로 유지합니다.
 두 경로는 같은 장면 / 재질 데이터를 사용하지만 출력 셰이더와 PSO는 다릅니다.
-G-buffer 포맷과 렌더 경로 선택 방식은 M5에서 확정합니다.
+G-buffer는 BaseColor, Normal, Metallic / Roughness / AO와 Depth를 기본으로 합니다.
+World Position은 Depth와 Camera 행렬로 복원합니다. 렌더 경로 선택 방식은 M5에서 확정합니다.
 
 ## GPU 수명 계약
 
