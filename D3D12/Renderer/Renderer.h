@@ -4,7 +4,8 @@
 #include "Manager/CameraManager.h"
 #include "Manager/InputManager.h"
 #include "Manager/LightManager.h"
-#include "Pipeline.h"
+#include "Pass/MeshRenderPass.h"
+#include "Pass/SkyboxRenderPass.h"
 #include "../Resource/GltfMesh.h"
 #include "../Resource/Texture.h"
 
@@ -52,7 +53,8 @@ private:
     ComPtr<ID3D12Resource> _depth_stencil_buffer;
     ComPtr<ID3D12CommandAllocator> _command_allocator;
     ComPtr<ID3D12GraphicsCommandList> _command_list;
-    PIPELINE _pipeline;
+    MESH_RENDER_PASS _mesh_render_pass;
+    SKYBOX_RENDER_PASS _skybox_render_pass;
     GLTF_MESH _gltf_mesh;
     TEXTURE_SET _material_textures;
     ComPtr<ID3D12Resource> _vertex_buffer;

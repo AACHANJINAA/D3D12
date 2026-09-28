@@ -21,7 +21,10 @@
     <ClCompile Include="Renderer\Renderer.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
-    <ClCompile Include="Renderer\Pipeline.cpp">
+    <ClCompile Include="Renderer\Pass\MeshRenderPass.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="Renderer\Pass\SkyboxRenderPass.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
     <ClCompile Include="Renderer\Manager\CameraManager.cpp">
@@ -41,7 +44,10 @@
     <ClInclude Include="Renderer\Renderer.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
-    <ClInclude Include="Renderer\Pipeline.h">
+    <ClInclude Include="Renderer\Pass\MeshRenderPass.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="Renderer\Pass\SkyboxRenderPass.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="Renderer\Manager\CameraManager.h">

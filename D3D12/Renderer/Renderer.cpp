@@ -67,7 +67,10 @@ bool RENDERER::initialize(HINSTANCE instance, int show_command)
     if (!create_command_objects()) return report_initialization_failure(L"create_command_objects");
     if (!create_swap_chain()) return report_initialization_failure(L"create_swap_chain");
     if (!create_render_targets()) return report_initialization_failure(L"create_render_targets");
-    if (!_pipeline.initialize(_device.Get())) return report_initialization_failure(L"pipeline.initialize");
+    if (!_mesh_render_pass.initialize(_device.Get()))
+        return report_initialization_failure(L"mesh_render_pass.initialize");
+    if (!_skybox_render_pass.initialize(_device.Get()))
+        return report_initialization_failure(L"skybox_render_pass.initialize");
     if (!create_vertex_buffer()) return report_initialization_failure(L"create_vertex_buffer");
     if (!create_constant_buffer()) return report_initialization_failure(L"create_constant_buffer");
     if (!create_fence()) return report_initialization_failure(L"create_fence");
@@ -348,7 +351,7 @@ bool RENDERER::create_fence()
 bool RENDERER::create_texture()
 {
     if (FAILED(_command_allocator->Reset()) ||
-        FAILED(_command_list->Reset(_command_allocator.Get(), _pipeline.get_pipeline())))
+        FAILED(_command_list->Reset(_command_allocator.Get(), _mesh_render_pass.get_pipeline())))
     {
         return false;
     }
@@ -412,7 +415,7 @@ void RENDERER::render_frame()
     std::memcpy(_constant_data, &frame_data, sizeof(frame_data));
 
     _command_allocator->Reset();
-    _command_list->Reset(_command_allocator.Get(), _pipeline.get_pipeline());
+    _command_list->Reset(_command_allocator.Get(), _mesh_render_pass.get_pipeline());
     
     const CD3DX12_RESOURCE_BARRIER to_render_target = CD3DX12_RESOURCE_BARRIER::transition(
         _render_targets[_frame_index].Get(),
@@ -433,11 +436,12 @@ void RENDERER::render_frame()
         0,
         0,
         nullptr);
+    _skybox_render_pass.render(_command_list.Get());
     D3D12_VIEWPORT viewport{ 0.0f, 0.0f, 1280.0f, 720.0f, 0.0f, 1.0f };
     D3D12_RECT scissor_rect{ 0, 0, 1280, 720 };
     _command_list->RSSetViewports(1, &viewport);
     _command_list->RSSetScissorRects(1, &scissor_rect);
-    _command_list->SetGraphicsRootSignature(_pipeline.get_root_signature());
+    _command_list->SetGraphicsRootSignature(_mesh_render_pass.get_root_signature());
     _command_list->SetGraphicsRootConstantBufferView(0, _constant_buffer->GetGPUVirtualAddress());
     ID3D12DescriptorHeap* descriptor_heaps[] = { _material_textures.get_srv_heap() };
     _command_list->SetDescriptorHeaps(1, descriptor_heaps);
@@ -447,7 +451,7 @@ void RENDERER::render_frame()
     _command_list->IASetIndexBuffer(&_index_buffer_view);
     _command_list->DrawIndexedInstanced(
         static_cast<UINT>(_gltf_mesh.get_indices().size()), 1, 0, 0, 0);
-    _command_list->SetPipelineState(_pipeline.get_wireframe_pipeline());
+    _command_list->SetPipelineState(_mesh_render_pass.get_wireframe_pipeline());
     _command_list->DrawIndexedInstanced(
         static_cast<UINT>(_gltf_mesh.get_indices().size()), 1, 0, 0, 0);
     const CD3DX12_RESOURCE_BARRIER to_present = CD3DX12_RESOURCE_BARRIER::transition(

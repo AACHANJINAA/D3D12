@@ -228,7 +228,14 @@
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>..\Common\stdafx.h</PrecompiledHeaderFile>
     </ClCompile>
-    <ClCompile Include="Renderer\Pipeline.cpp" />
+    <ClCompile Include="Renderer\Pass\MeshRenderPass.cpp">
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>..\..\Common\stdafx.h</PrecompiledHeaderFile>
+    </ClCompile>
+    <ClCompile Include="Renderer\Pass\SkyboxRenderPass.cpp">
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>..\..\Common\stdafx.h</PrecompiledHeaderFile>
+    </ClCompile>
     <ClCompile Include="Renderer\Manager\CameraManager.cpp">
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>..\..\Common\stdafx.h</PrecompiledHeaderFile>
@@ -257,7 +264,6 @@
   <ItemGroup>
     <ClInclude Include="Common\stdafx.h" />
     <ClInclude Include="Renderer\Renderer.h" />
-    <ClInclude Include="Renderer\Pipeline.h" />
     <ClInclude Include="Renderer\Manager\CameraManager.h" />
     <ClInclude Include="Renderer\Manager\InputManager.h" />
     <ClInclude Include="Renderer\Manager\LightManager.h" />

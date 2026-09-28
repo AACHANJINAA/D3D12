@@ -1,30 +1,9 @@
-#include "../Common/stdafx.h"
-#include "Pipeline.h"
-#include "Shader/Shader.h"
-#include "../Resource/Texture.h"
+#include "../../Common/stdafx.h"
+#include "MeshRenderPass.h"
+#include "../../Resource/Texture.h"
+#include "../Shader/Shader.h"
 
-bool PIPELINE::initialize(ID3D12Device* device)
-{
-    return _cube_pso.initialize(device);
-}
-
-ID3D12RootSignature* PIPELINE::get_root_signature() const
-{
-    return _cube_pso.get_root_signature();
-}
-
-ID3D12PipelineState* PIPELINE::get_pipeline() const
-{
-    return _cube_pso.get_pipeline();
-}
-
-ID3D12PipelineState* PIPELINE::get_wireframe_pipeline() const
-{
-    return _cube_pso.get_wireframe_pipeline();
-}
-
-
-bool CUBE_PSO::initialize(ID3D12Device* device)
+bool MESH_RENDER_PASS::initialize(ID3D12Device* device)
 {
     ComPtr<ID3DBlob> vertex_shader;
     ComPtr<ID3DBlob> white_pixel_shader;
@@ -122,6 +101,6 @@ bool CUBE_PSO::initialize(ID3D12Device* device)
         &description, IID_PPV_ARGS(&_wireframe_pipeline)));
 }
 
-ID3D12RootSignature* CUBE_PSO::get_root_signature() const { return _root_signature.Get(); }
-ID3D12PipelineState* CUBE_PSO::get_pipeline() const { return _pipeline.Get(); }
-ID3D12PipelineState* CUBE_PSO::get_wireframe_pipeline() const { return _wireframe_pipeline.Get(); }
+ID3D12RootSignature* MESH_RENDER_PASS::get_root_signature() const { return _root_signature.Get(); }
+ID3D12PipelineState* MESH_RENDER_PASS::get_pipeline() const { return _pipeline.Get(); }
+ID3D12PipelineState* MESH_RENDER_PASS::get_wireframe_pipeline() const { return _wireframe_pipeline.Get(); }
