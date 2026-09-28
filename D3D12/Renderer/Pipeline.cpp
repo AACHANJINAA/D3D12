@@ -67,8 +67,6 @@ bool CUBE_PSO::initialize(ID3D12Device* device)
     description.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
     description.BlendState = CD3DX12_BLEND_DESC();
     description.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC();
-    description.DepthStencilState.DepthEnable = FALSE;
-    description.DepthStencilState.StencilEnable = FALSE;
     description.SampleMask = UINT_MAX;
     description.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
     description.NumRenderTargets = 1;

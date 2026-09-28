@@ -44,6 +44,8 @@ private:
     ComPtr<ID3D12DescriptorHeap> _render_target_heap;
     std::array<ComPtr<ID3D12Resource>, frame_count> _render_targets;
     UINT _render_target_descriptor_size = 0;
+    ComPtr<ID3D12DescriptorHeap> _depth_stencil_heap;
+    ComPtr<ID3D12Resource> _depth_stencil_buffer;
     ComPtr<ID3D12CommandAllocator> _command_allocator;
     ComPtr<ID3D12GraphicsCommandList> _command_list;
     PIPELINE _pipeline;

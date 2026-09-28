@@ -190,6 +190,46 @@ bool RENDERER::create_render_targets()
         _device->CreateRenderTargetView(_render_targets[buffer_index].Get(), nullptr, descriptor_handle);
         descriptor_handle.ptr += _render_target_descriptor_size;
     }
+
+    CD3DX12_DESCRIPTOR_HEAP_DESC depth_heap_description(1, D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
+    if (FAILED(_device->CreateDescriptorHeap(&depth_heap_description,
+        IID_PPV_ARGS(&_depth_stencil_heap))))
+    {
+        return false;
+    }
+
+    const CD3DX12_HEAP_PROPERTIES depth_heap_properties(D3D12_HEAP_TYPE_DEFAULT);
+    D3D12_RESOURCE_DESC depth_description{};
+    depth_description.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+    depth_description.Width = 1280;
+    depth_description.Height = 720;
+    depth_description.DepthOrArraySize = 1;
+    depth_description.MipLevels = 1;
+    depth_description.Format = DXGI_FORMAT_D32_FLOAT;
+    depth_description.SampleDesc.Count = 1;
+    depth_description.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+    depth_description.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
+
+    D3D12_CLEAR_VALUE depth_clear_value{};
+    depth_clear_value.Format = DXGI_FORMAT_D32_FLOAT;
+    depth_clear_value.DepthStencil.Depth = 1.0f;
+    depth_clear_value.DepthStencil.Stencil = 0;
+
+    if (FAILED(_device->CreateCommittedResource(
+        &depth_heap_properties,
+        D3D12_HEAP_FLAG_NONE,
+        &depth_description,
+        D3D12_RESOURCE_STATE_DEPTH_WRITE,
+        &depth_clear_value,
+        IID_PPV_ARGS(&_depth_stencil_buffer))))
+    {
+        return false;
+    }
+
+    _device->CreateDepthStencilView(
+        _depth_stencil_buffer.Get(),
+        nullptr,
+        _depth_stencil_heap->GetCPUDescriptorHandleForHeapStart());
     return true;
 }
 
@@ -291,9 +331,17 @@ void RENDERER::render_frame()
     
     auto render_target_handle = _render_target_heap->GetCPUDescriptorHandleForHeapStart();
     render_target_handle.ptr += static_cast<SIZE_T>(_frame_index) * _render_target_descriptor_size;
-    _command_list->OMSetRenderTargets(1, &render_target_handle, FALSE, nullptr);
+    const auto depth_stencil_handle = _depth_stencil_heap->GetCPUDescriptorHandleForHeapStart();
+    _command_list->OMSetRenderTargets(1, &render_target_handle, FALSE, &depth_stencil_handle);
     constexpr float clear_color[] = { 0.05f, 0.05f, 0.08f, 1.0f };
     _command_list->ClearRenderTargetView(render_target_handle, clear_color, 0, nullptr);
+    _command_list->ClearDepthStencilView(
+        depth_stencil_handle,
+        D3D12_CLEAR_FLAG_DEPTH,
+        1.0f,
+        0,
+        0,
+        nullptr);
     D3D12_VIEWPORT viewport{ 0.0f, 0.0f, 1280.0f, 720.0f, 0.0f, 1.0f };
     D3D12_RECT scissor_rect{ 0, 0, 1280, 720 };
     _command_list->RSSetViewports(1, &viewport);
@@ -358,6 +406,8 @@ void RENDERER::shutdown()
     _constant_buffer.Reset();
     _vertex_buffer.Reset();
     _index_buffer.Reset();
+    _depth_stencil_buffer.Reset();
+    _depth_stencil_heap.Reset();
     _command_list.Reset();
     _command_allocator.Reset();
     for (auto& render_target : _render_targets) render_target.Reset();
