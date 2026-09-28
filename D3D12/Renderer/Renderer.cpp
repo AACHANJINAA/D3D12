@@ -133,6 +133,69 @@ bool RENDERER::create_window(int show_command)
     return true;
 }
 
+bool RENDERER::resize_swap_chain()
+{
+    wait_for_gpu();
+    for (auto& render_target : _render_targets)
+    {
+        render_target.Reset();
+    }
+    _depth_stencil_buffer.Reset();
+    _render_target_heap.Reset();
+    _depth_stencil_heap.Reset();
+
+    RECT client_rect{};
+    GetClientRect(_window, &client_rect);
+    const UINT width = static_cast<UINT>((std::max)(client_rect.right - client_rect.left, 1L));
+    const UINT height = static_cast<UINT>((std::max)(client_rect.bottom - client_rect.top, 1L));
+    if (FAILED(_swap_chain->ResizeBuffers(
+        frame_count, width, height, DXGI_FORMAT_R8G8B8A8_UNORM, 0)))
+    {
+        return false;
+    }
+    _frame_index = _swap_chain->GetCurrentBackBufferIndex();
+    return create_render_targets();
+}
+
+void RENDERER::toggle_fullscreen()
+{
+    if (_window == nullptr || _swap_chain == nullptr)
+    {
+        return;
+    }
+
+    if (!_is_fullscreen)
+    {
+        GetWindowRect(_window, &_windowed_rect);
+        _windowed_style = GetWindowLongPtrW(_window, GWL_STYLE);
+        _windowed_ex_style = GetWindowLongPtrW(_window, GWL_EXSTYLE);
+
+        MONITORINFO monitor_info{ sizeof(MONITORINFO) };
+        HMONITOR monitor = MonitorFromWindow(_window, MONITOR_DEFAULTTONEAREST);
+        GetMonitorInfoW(monitor, &monitor_info);
+        SetWindowLongPtrW(_window, GWL_STYLE, WS_POPUP);
+        SetWindowLongPtrW(_window, GWL_EXSTYLE, WS_EX_APPWINDOW);
+        SetWindowPos(_window, HWND_TOP,
+            monitor_info.rcMonitor.left, monitor_info.rcMonitor.top,
+            monitor_info.rcMonitor.right - monitor_info.rcMonitor.left,
+            monitor_info.rcMonitor.bottom - monitor_info.rcMonitor.top,
+            SWP_FRAMECHANGED | SWP_SHOWWINDOW);
+        _is_fullscreen = true;
+    }
+    else
+    {
+        SetWindowLongPtrW(_window, GWL_STYLE, _windowed_style);
+        SetWindowLongPtrW(_window, GWL_EXSTYLE, _windowed_ex_style);
+        SetWindowPos(_window, HWND_TOP,
+            _windowed_rect.left, _windowed_rect.top,
+            _windowed_rect.right - _windowed_rect.left,
+            _windowed_rect.bottom - _windowed_rect.top,
+            SWP_FRAMECHANGED | SWP_SHOWWINDOW);
+        _is_fullscreen = false;
+    }
+    resize_swap_chain();
+}
+
 bool RENDERER::initialize_device()
 {
     UINT factory_flags = 0;
@@ -230,8 +293,12 @@ bool RENDERER::create_render_targets()
     const CD3DX12_HEAP_PROPERTIES depth_heap_properties(D3D12_HEAP_TYPE_DEFAULT);
     D3D12_RESOURCE_DESC depth_description{};
     depth_description.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
-    depth_description.Width = 1280;
-    depth_description.Height = 720;
+    RECT client_rect{};
+    GetClientRect(_window, &client_rect);
+    const UINT client_width = static_cast<UINT>(client_rect.right - client_rect.left);
+    const UINT client_height = static_cast<UINT>(client_rect.bottom - client_rect.top);
+    depth_description.Width = client_width;
+    depth_description.Height = client_height;
     depth_description.DepthOrArraySize = 1;
     depth_description.MipLevels = 1;
     depth_description.Format = DXGI_FORMAT_D32_FLOAT;
@@ -420,6 +487,13 @@ void RENDERER::render_frame()
         static_cast<float>(current_time - last_frame_time) / 1000.0f, 0.1f);
     last_frame_time = current_time;
     INPUT_MANAGER::get_instance().update();
+    static bool was_fullscreen_key_down = false;
+    const bool is_fullscreen_key_down = INPUT_MANAGER::get_instance().is_key_down('1');
+    if (is_fullscreen_key_down && !was_fullscreen_key_down)
+    {
+        toggle_fullscreen();
+    }
+    was_fullscreen_key_down = is_fullscreen_key_down;
     static bool was_light_orbit_key_down = false;
     const bool is_light_orbit_key_down = INPUT_MANAGER::get_instance().is_key_down('L');
     if (is_light_orbit_key_down && !was_light_orbit_key_down)
@@ -429,7 +503,13 @@ void RENDERER::render_frame()
     was_light_orbit_key_down = is_light_orbit_key_down;
     LIGHT_MANAGER::get_instance().update(delta_time);
     CAMERA_MANAGER::get_instance().update(delta_time);
-    const MATH::MATRIX4X4 transform = CAMERA_MANAGER::get_instance().get_view_projection(1280.0f / 720.0f);
+    RECT client_rect{};
+    GetClientRect(_window, &client_rect);
+    const float client_width = static_cast<float>(client_rect.right - client_rect.left);
+    const float client_height = static_cast<float>(client_rect.bottom - client_rect.top);
+    const float aspect_ratio = client_height > 0.0f ? client_width / client_height : 1.0f;
+    const MATH::MATRIX4X4 transform =
+        CAMERA_MANAGER::get_instance().get_view_projection(aspect_ratio);
     const DIRECTIONAL_LIGHT& directional_light =
         LIGHT_MANAGER::get_instance().get_directional_light();
     FRAME_DATA frame_data{};
@@ -472,8 +552,9 @@ void RENDERER::render_frame()
         0,
         0,
         nullptr);
-    D3D12_VIEWPORT viewport{ 0.0f, 0.0f, 1280.0f, 720.0f, 0.0f, 1.0f };
-    D3D12_RECT scissor_rect{ 0, 0, 1280, 720 };
+    D3D12_VIEWPORT viewport{ 0.0f, 0.0f, client_width, client_height, 0.0f, 1.0f };
+    D3D12_RECT scissor_rect{
+        0, 0, static_cast<LONG>(client_width), static_cast<LONG>(client_height) };
     _command_list->RSSetViewports(1, &viewport);
     _command_list->RSSetScissorRects(1, &scissor_rect);
     _skybox_render_pass.render(_command_list.Get());

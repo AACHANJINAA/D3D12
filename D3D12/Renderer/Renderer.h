@@ -31,11 +31,13 @@ private:
     bool create_command_objects();
     bool create_swap_chain();
     bool create_render_targets();
+    bool resize_swap_chain();
     bool create_vertex_buffer();
     bool create_constant_buffer();
     bool create_fence();
     bool create_texture();
     void render_frame();
+    void toggle_fullscreen();
     void wait_for_gpu();
     void move_to_next_frame();
     void shutdown();
@@ -68,4 +70,8 @@ private:
     HANDLE _fence_event = nullptr;
     UINT _frame_index = 0;
     bool _is_com_initialized = false;
+    bool _is_fullscreen = false;
+    LONG_PTR _windowed_style = WS_OVERLAPPEDWINDOW;
+    LONG_PTR _windowed_ex_style = WS_EX_APPWINDOW;
+    RECT _windowed_rect{};
 };
