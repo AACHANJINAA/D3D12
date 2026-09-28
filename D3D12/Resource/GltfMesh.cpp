@@ -106,6 +106,67 @@ namespace
         return true;
     }
 
+    bool read_float(const std::string& object, const char* key, float& value)
+    {
+        const size_t key_position = object.find(key);
+        if (key_position == std::string::npos)
+        {
+            return false;
+        }
+        const size_t value_start = object.find(':', key_position);
+        if (value_start == std::string::npos)
+        {
+            return false;
+        }
+        try
+        {
+            value = std::stof(object.substr(value_start + 1));
+        }
+        catch (...)
+        {
+            return false;
+        }
+        return true;
+    }
+
+    bool read_float_array(const std::string& object, const char* key, float* values, size_t count)
+    {
+        const size_t key_position = object.find(key);
+        if (key_position == std::string::npos)
+        {
+            return false;
+        }
+        const size_t array_start = object.find('[', key_position);
+        const size_t array_end = object.find(']', array_start);
+        if (array_start == std::string::npos || array_end == std::string::npos)
+        {
+            return false;
+        }
+        std::string array_text = object.substr(array_start + 1, array_end - array_start - 1);
+        size_t offset = 0;
+        try
+        {
+            for (size_t index = 0; index < count; ++index)
+            {
+                const size_t separator = array_text.find(',', offset);
+                const size_t length = separator == std::string::npos
+                    ? array_text.size() - offset
+                    : separator - offset;
+                values[index] = std::stof(array_text.substr(offset, length));
+                if (separator == std::string::npos)
+                {
+                    break;
+                }
+                offset = separator + 1;
+            }
+        }
+        catch (...)
+        {
+            return false;
+        }
+        return true;
+    }
+
     template <typename T>
     bool read_binary(const std::vector<uint8_t>& binary,
         size_t offset, size_t count, std::vector<T>& output)
@@ -132,6 +193,24 @@ bool GLTF_MESH::load(const std::filesystem::path& file_path)
         return false;
     }
     const std::string json((std::istreambuf_iterator<char>(gltf_file)), {});
+    // glTF defaults: white base color, metallic/roughness factors of one.
+    _material = {};
+    _material.base_color_factor[0] = 1.0f;
+    _material.base_color_factor[1] = 1.0f;
+    _material.base_color_factor[2] = 1.0f;
+    _material.base_color_factor[3] = 1.0f;
+    _material.metallic_factor = 1.0f;
+    _material.roughness_factor = 1.0f;
+
+    const auto material_objects = get_objects(json, "\"materials\"");
+    if (!material_objects.empty())
+    {
+        const std::string& material = material_objects[0];
+        read_float_array(material, "\"baseColorFactor\"", _material.base_color_factor, 4);
+        read_float_array(material, "\"emissiveFactor\"", _material.emissive_factor, 3);
+        read_float(material, "\"metallicFactor\"", _material.metallic_factor);
+        read_float(material, "\"roughnessFactor\"", _material.roughness_factor);
+    }
 
     const auto buffer_objects = get_objects(json, "\"buffers\"");
     const auto buffer_view_objects = get_objects(json, "\"bufferViews\"");
@@ -347,4 +426,9 @@ const std::vector<GLTF_VERTEX>& GLTF_MESH::get_vertices() const
 const std::vector<uint32_t>& GLTF_MESH::get_indices() const
 {
     return _indices;
+}
+
+const GLTF_MATERIAL& GLTF_MESH::get_material() const
+{
+    return _material;
 }

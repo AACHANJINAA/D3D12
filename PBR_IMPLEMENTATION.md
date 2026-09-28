@@ -21,22 +21,22 @@
 | Vertex Normal | [3.5 Normals](https://www.pbr-book.org/4ed/Geometry_and_Transformations/Normals) | 표면 방향과 조명 입사각 계산 | 완료 |
 | Directional Light | [12.3 Distant Lights](https://www.pbr-book.org/4ed/Light_Sources/Distant_Lights) | 위치와 무관한 일정 방향의 광원 | 완료 |
 | Diffuse Reflection | [9.2 Diffuse Reflection](https://www.pbr-book.org/4ed/Reflection_Models/Diffuse_Reflection) | Lambert diffuse와 NdotL 적용 | 완료 |
-| Cook-Torrance BRDF | [9.4 Conductor BRDF](https://www.pbr-book.org/4ed/Reflection_Models/Conductor_BRDF) | D, F, G 항을 이용한 Specular 반사 | 구현 중 |
+| Cook-Torrance BRDF | [9.4 Conductor BRDF](https://www.pbr-book.org/4ed/Reflection_Models/Conductor_BRDF) | D, F, G 항을 이용한 Specular 반사 | 완료 |
 | GGX NDF | [9.6 Roughness Using Microfacet Theory](https://www.pbr-book.org/4ed/Reflection_Models/Roughness_Using_Microfacet_Theory) | 거칠기에 따른 Microfacet Normal 분포 | 완료 |
 | Schlick Fresnel | [9.4 Conductor BRDF](https://www.pbr-book.org/4ed/Reflection_Models/Conductor_BRDF) | 시선각에 따른 반사율 변화 | 완료 |
 | Smith Geometry | [9.6.2 The Masking Function](https://www.pbr-book.org/4ed/Reflection_Models/Roughness_Using_Microfacet_Theory) | Microfacet Shadowing / Masking 보정 | 완료 |
-| Metallic Workflow | [9.4 Conductor BRDF](https://www.pbr-book.org/4ed/Reflection_Models/Conductor_BRDF) | 금속의 F0와 Diffuse 비활성화 | 임시 상수 |
-| Roughness Workflow | [9.6 Roughness Using Microfacet Theory](https://www.pbr-book.org/4ed/Reflection_Models/Roughness_Using_Microfacet_Theory) | Roughness를 GGX alpha로 변환 | 임시 상수 |
-| Material 구조 | [10.5 Material Interface and Implementations](https://www.pbr-book.org/4ed/Textures_and_Materials/Material_Interface_and_Implementations) | Texture와 수치 파라미터를 Material로 통합 | 예정 |
-| Normal Map | [3.5 Normals](https://www.pbr-book.org/4ed/Geometry_and_Transformations/Normals) | Tangent Space Normal을 Shading Normal로 변환 | 예정 |
-| ORM Texture | [10.4 Image Texture](https://www.pbr-book.org/4ed/Textures_and_Materials/Image_Texture) | AO, Roughness, Metallic 채널 분리 | 예정 |
-| Emissive | [4.4 Light Emission](https://www.pbr-book.org/4ed/Radiometry_Spectra_and_Color/Light_Emission) | 자체 발광 색상을 최종 결과에 더함 | 예정 |
-| Skybox | [12.5 Infinite Area Lights](https://www.pbr-book.org/4ed/Light_Sources/Infinite_Area_Lights) | 무한 영역 환경광과 환경 Texture | 예정 |
-| IBL Diffuse | [12.5 Infinite Area Lights](https://www.pbr-book.org/4ed/Light_Sources/Infinite_Area_Lights) | Irradiance 환경광 | 예정 |
-| IBL Specular | [9.6 Roughness Using Microfacet Theory](https://www.pbr-book.org/4ed/Reflection_Models/Roughness_Using_Microfacet_Theory) | Roughness별 Prefiltered Environment | 예정 |
-| BRDF LUT | [13.1 The Light Transport Equation](https://www.pbr-book.org/4ed/Light_Transport_I_Surface_Reflection/The_Light_Transport_Equation) | Split-Sum Specular IBL 보정항 | 예정 |
-| Linear Color | [4.6 Color](https://www.pbr-book.org/4ed/Radiometry_Spectra_and_Color/Color) | 색상 변환과 에너지 계산 기준 | 예정 |
-| Tone Mapping | [5.4 Film and Imaging](https://www.pbr-book.org/4ed/Cameras_and_Film/Film_and_Imaging) | HDR 조명 결과를 화면 출력 범위로 변환 | 예정 |
+| Metallic Workflow | [9.4 Conductor BRDF](https://www.pbr-book.org/4ed/Reflection_Models/Conductor_BRDF) | 금속의 F0와 Diffuse 비활성화 | 완료 |
+| Roughness Workflow | [9.6 Roughness Using Microfacet Theory](https://www.pbr-book.org/4ed/Reflection_Models/Roughness_Using_Microfacet_Theory) | Roughness를 GGX alpha로 변환 | 완료 |
+| Material 구조 | [10.5 Material Interface and Implementations](https://www.pbr-book.org/4ed/Textures_and_Materials/Material_Interface_and_Implementations) | Texture와 glTF 수치 파라미터를 Material로 통합 | 완료 |
+| Normal Map | [3.5 Normals](https://www.pbr-book.org/4ed/Geometry_and_Transformations/Normals) | Tangent Space Normal을 Shading Normal로 변환 | 완료 |
+| ORM Texture | [10.4 Image Texture](https://www.pbr-book.org/4ed/Textures_and_Materials/Image_Texture) | AO, Roughness, Metallic 채널 분리 | 완료 |
+| Emissive | [4.4 Light Emission](https://www.pbr-book.org/4ed/Radiometry_Spectra_and_Color/Light_Emission) | 자체 발광 색상과 glTF factor 적용 | 완료 |
+| Skybox | [12.5 Infinite Area Lights](https://www.pbr-book.org/4ed/Light_Sources/Infinite_Area_Lights) | 무한 영역 환경광과 환경 Texture | 완료 |
+| IBL Diffuse | [12.5 Infinite Area Lights](https://www.pbr-book.org/4ed/Light_Sources/Infinite_Area_Lights) | Irradiance 환경광과 SH 근사 | 완료 |
+| IBL Specular | [9.6 Roughness Using Microfacet Theory](https://www.pbr-book.org/4ed/Reflection_Models/Roughness_Using_Microfacet_Theory) | Roughness별 Prefiltered Environment | 완료 |
+| BRDF LUT | [13.1 The Light Transport Equation](https://www.pbr-book.org/4ed/Light_Transport_I_Surface_Reflection/The_Light_Transport_Equation) | Split-Sum Specular IBL 보정항 | 완료 |
+| Linear Color | [4.6 Color](https://www.pbr-book.org/4ed/Radiometry_Spectra_and_Color/Color) | 색상 변환과 에너지 계산 기준 | 구현 중 |
+| Tone Mapping | [5.4 Film and Imaging](https://www.pbr-book.org/4ed/Cameras_and_Film/Film_and_Imaging) | HDR 조명 결과를 화면 출력 범위로 변환 | 완료 |
 
 ## 현재 Shader 구조
 
@@ -102,13 +102,13 @@ AO Texture가 별도로 존재하는 경우에는 glTF Material의 Occlusion Str
 - GGX D
 - Schlick F
 - Smith G
-- Metallic / Roughness 임시 상수
+- glTF Material의 Metallic / Roughness factor
 
 완료 기준: Helmet Mesh에 금속성 하이라이트와 Roughness 변화가 나타납니다.
 
 ### PBR-02. glTF Material Texture
 
-- Metallic-Roughness Texture Import
+- Metallic-Roughness Texture Import 및 glTF factor 연결
 - AO Texture Import
 - Emissive Texture Import
 - SRV Descriptor Table 확장

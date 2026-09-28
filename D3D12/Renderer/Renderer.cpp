@@ -20,10 +20,14 @@ namespace
         MATH::VECTOR3 light_color;
         float padding = 0.0f;
         MATH::VECTOR3 camera_position;
-        float metallic = 0.0f;
-        float roughness = 0.5f;
+        float camera_padding = 0.0f;
+        MATH::VECTOR4 base_color_factor;
+        float metallic_factor = 1.0f;
+        float roughness_factor = 1.0f;
         float ambient_strength = 0.03f;
-        float reserved[2]{};
+        float material_padding = 0.0f;
+        MATH::VECTOR3 emissive_factor;
+        float emissive_padding = 0.0f;
     };
 
     static_assert(sizeof(FRAME_DATA) <= D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
@@ -434,8 +438,15 @@ void RENDERER::render_frame()
     frame_data.light_intensity = directional_light.intensity;
     frame_data.light_color = directional_light.color;
     frame_data.camera_position = CAMERA_MANAGER::get_instance().get_position();
-    frame_data.metallic = 0.85f;
-    frame_data.roughness = 0.35f;
+    const GLTF_MATERIAL& material = _gltf_mesh.get_material();
+    frame_data.base_color_factor = {
+        material.base_color_factor[0], material.base_color_factor[1],
+        material.base_color_factor[2], material.base_color_factor[3] };
+    frame_data.metallic_factor = material.metallic_factor;
+    frame_data.roughness_factor = material.roughness_factor;
+    frame_data.emissive_factor = {
+        material.emissive_factor[0], material.emissive_factor[1],
+        material.emissive_factor[2] };
     frame_data.ambient_strength = 0.03f;
     std::memcpy(_constant_data, &frame_data, sizeof(frame_data));
 

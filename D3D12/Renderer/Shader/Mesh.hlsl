@@ -6,10 +6,14 @@ cbuffer OBJECT_DATA : register(b0)
     float3 light_color;
     float padding;
     float3 camera_position;
-    float metallic;
-    float roughness;
+    float camera_padding;
+    float4 base_color_factor;
+    float metallic_factor;
+    float roughness_factor;
     float ambient_strength;
-    float2 reserved;
+    float material_padding;
+    float3 emissive_factor;
+    float emissive_padding;
 };
 
 Texture2D albedo_texture : register(t0);
@@ -110,12 +114,12 @@ float4 PS_Mesh(
     float4 tangent : TANGENT,
     float2 uv : TEXCOORD) : SV_TARGET
 {
-    float4 albedo = albedo_texture.Sample(texture_sampler, uv);
+    float4 albedo = albedo_texture.Sample(texture_sampler, uv) * base_color_factor;
     float4 metal_roughness = metal_roughness_texture.Sample(texture_sampler, uv);
-    float metallic_value = metal_roughness.b;
-    float roughness_value = max(metal_roughness.g, 0.04f);
+    float metallic_value = saturate(metal_roughness.b * metallic_factor);
+    float roughness_value = max(metal_roughness.g * roughness_factor, 0.04f);
     float ambient_occlusion = ao_texture.Sample(texture_sampler, uv).r;
-    float3 emissive = emissive_texture.Sample(texture_sampler, uv).rgb;
+    float3 emissive = emissive_texture.Sample(texture_sampler, uv).rgb * emissive_factor;
 
     float3 geometric_normal = normalize(normal);
     float3 surface_tangent = normalize(
