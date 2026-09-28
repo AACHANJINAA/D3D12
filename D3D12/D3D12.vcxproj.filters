@@ -73,5 +73,8 @@
     <None Include="Renderer\Shader\Triangle.hlsl">
       <Filter>리소스 파일</Filter>
     </None>
+    <None Include="Renderer\Shader\Skybox.hlsl">
+      <Filter>리소스 파일</Filter>
+    </None>
   </ItemGroup>
 </Project>

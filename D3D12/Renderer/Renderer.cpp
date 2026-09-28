@@ -373,6 +373,13 @@ bool RENDERER::create_texture()
         return false;
     }
 
+    if (!_skybox_render_pass.load_cubemap(
+        _device.Get(), _command_list.Get(),
+        get_asset_path(L"Skybox/cloudy/cloudy_skybox.dds")))
+    {
+        return false;
+    }
+
     if (FAILED(_command_list->Close()))
     {
         return false;
@@ -436,11 +443,12 @@ void RENDERER::render_frame()
         0,
         0,
         nullptr);
-    _skybox_render_pass.render(_command_list.Get());
     D3D12_VIEWPORT viewport{ 0.0f, 0.0f, 1280.0f, 720.0f, 0.0f, 1.0f };
     D3D12_RECT scissor_rect{ 0, 0, 1280, 720 };
     _command_list->RSSetViewports(1, &viewport);
     _command_list->RSSetScissorRects(1, &scissor_rect);
+    _skybox_render_pass.render(_command_list.Get());
+    _command_list->SetPipelineState(_mesh_render_pass.get_pipeline());
     _command_list->SetGraphicsRootSignature(_mesh_render_pass.get_root_signature());
     _command_list->SetGraphicsRootConstantBufferView(0, _constant_buffer->GetGPUVirtualAddress());
     ID3D12DescriptorHeap* descriptor_heaps[] = { _material_textures.get_srv_heap() };
