@@ -54,7 +54,7 @@ private:
     ComPtr<ID3D12GraphicsCommandList> _command_list;
     PIPELINE _pipeline;
     GLTF_MESH _gltf_mesh;
-    TEXTURE _albedo_texture;
+    TEXTURE_SET _material_textures;
     ComPtr<ID3D12Resource> _vertex_buffer;
     D3D12_VERTEX_BUFFER_VIEW _vertex_buffer_view{};
     ComPtr<ID3D12Resource> _index_buffer;

@@ -1,6 +1,7 @@
 #include "../Common/stdafx.h"
 #include "Pipeline.h"
 #include "Shader/Shader.h"
+#include "../Resource/Texture.h"
 
 bool PIPELINE::initialize(ID3D12Device* device)
 {
@@ -39,7 +40,7 @@ bool CUBE_PSO::initialize(ID3D12Device* device)
         D3D12_ROOT_PARAMETER_TYPE_CBV, 0, D3D12_SHADER_VISIBILITY_ALL);
     D3D12_DESCRIPTOR_RANGE texture_range{};
     texture_range.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-    texture_range.NumDescriptors = 1;
+    texture_range.NumDescriptors = TEXTURE_SET::texture_count;
     texture_range.BaseShaderRegister = 0;
     texture_range.RegisterSpace = 0;
     texture_range.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
@@ -89,7 +90,9 @@ bool CUBE_PSO::initialize(ID3D12Device* device)
             D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
         { "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12,
             D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-        { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 24,
+        { "TANGENT", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 24,
+            D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
+        { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 36,
             D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
     };
 

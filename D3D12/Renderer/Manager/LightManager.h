@@ -19,10 +19,13 @@ public:
     LIGHT_MANAGER& operator=(const LIGHT_MANAGER&) = delete;
 
     void initialize();
+    void update(float delta_time);
+    void toggle_orbit();
     const DIRECTIONAL_LIGHT& get_directional_light() const;
 
 private:
     LIGHT_MANAGER() = default;
 
     DIRECTIONAL_LIGHT _directional_light;
+    bool _is_orbiting = false;
 };

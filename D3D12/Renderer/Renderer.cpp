@@ -353,10 +353,19 @@ bool RENDERER::create_texture()
         return false;
     }
 
-    if (!_albedo_texture.initialize(
+    const std::array<std::filesystem::path, TEXTURE_SET::texture_count> texture_paths =
+    {
+        get_asset_path(L"Mesh/DamagedHelmet/Default_albedo.jpg"),
+        get_asset_path(L"Mesh/DamagedHelmet/Default_normal.jpg"),
+        get_asset_path(L"Mesh/DamagedHelmet/Default_metalRoughness.jpg"),
+        get_asset_path(L"Mesh/DamagedHelmet/Default_AO.jpg"),
+        get_asset_path(L"Mesh/DamagedHelmet/Default_emissive.jpg")
+    };
+
+    if (!_material_textures.initialize(
         _device.Get(),
         _command_list.Get(),
-        get_asset_path(L"Mesh/DamagedHelmet/Default_albedo.jpg")))
+        texture_paths))
     {
         return false;
     }
@@ -379,6 +388,14 @@ void RENDERER::render_frame()
         static_cast<float>(current_time - last_frame_time) / 1000.0f, 0.1f);
     last_frame_time = current_time;
     INPUT_MANAGER::get_instance().update();
+    static bool was_light_orbit_key_down = false;
+    const bool is_light_orbit_key_down = INPUT_MANAGER::get_instance().is_key_down('L');
+    if (is_light_orbit_key_down && !was_light_orbit_key_down)
+    {
+        LIGHT_MANAGER::get_instance().toggle_orbit();
+    }
+    was_light_orbit_key_down = is_light_orbit_key_down;
+    LIGHT_MANAGER::get_instance().update(delta_time);
     CAMERA_MANAGER::get_instance().update(delta_time);
     const MATH::MATRIX4X4 transform = CAMERA_MANAGER::get_instance().get_view_projection(1280.0f / 720.0f);
     const DIRECTIONAL_LIGHT& directional_light =
@@ -422,9 +439,9 @@ void RENDERER::render_frame()
     _command_list->RSSetScissorRects(1, &scissor_rect);
     _command_list->SetGraphicsRootSignature(_pipeline.get_root_signature());
     _command_list->SetGraphicsRootConstantBufferView(0, _constant_buffer->GetGPUVirtualAddress());
-    ID3D12DescriptorHeap* descriptor_heaps[] = { _albedo_texture.get_srv_heap() };
+    ID3D12DescriptorHeap* descriptor_heaps[] = { _material_textures.get_srv_heap() };
     _command_list->SetDescriptorHeaps(1, descriptor_heaps);
-    _command_list->SetGraphicsRootDescriptorTable(1, _albedo_texture.get_gpu_handle());
+    _command_list->SetGraphicsRootDescriptorTable(1, _material_textures.get_gpu_handle());
     _command_list->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     _command_list->IASetVertexBuffers(0, 1, &_vertex_buffer_view);
     _command_list->IASetIndexBuffer(&_index_buffer_view);

@@ -240,6 +240,80 @@ bool GLTF_MESH::load(const std::filesystem::path& file_path)
     }
 
     _indices.assign(source_indices.begin(), source_indices.end());
+
+    for (size_t index = 0; index + 2 < _indices.size(); index += 3)
+    {
+        GLTF_VERTEX& vertex0 = _vertices[_indices[index]];
+        GLTF_VERTEX& vertex1 = _vertices[_indices[index + 1]];
+        GLTF_VERTEX& vertex2 = _vertices[_indices[index + 2]];
+        const float edge1[3]
+        {
+            vertex1.position[0] - vertex0.position[0],
+            vertex1.position[1] - vertex0.position[1],
+            vertex1.position[2] - vertex0.position[2]
+        };
+        const float edge2[3]
+        {
+            vertex2.position[0] - vertex0.position[0],
+            vertex2.position[1] - vertex0.position[1],
+            vertex2.position[2] - vertex0.position[2]
+        };
+        const float delta_uv1[2]
+        {
+            vertex1.uv[0] - vertex0.uv[0], vertex1.uv[1] - vertex0.uv[1]
+        };
+        const float delta_uv2[2]
+        {
+            vertex2.uv[0] - vertex0.uv[0], vertex2.uv[1] - vertex0.uv[1]
+        };
+        const float determinant = delta_uv1[0] * delta_uv2[1] -
+            delta_uv2[0] * delta_uv1[1];
+        if (std::abs(determinant) <= 0.000001f)
+        {
+            continue;
+        }
+
+        const float inverse_determinant = 1.0f / determinant;
+        const float tangent[3]
+        {
+            inverse_determinant * (delta_uv2[1] * edge1[0] - delta_uv1[1] * edge2[0]),
+            inverse_determinant * (delta_uv2[1] * edge1[1] - delta_uv1[1] * edge2[1]),
+            inverse_determinant * (delta_uv2[1] * edge1[2] - delta_uv1[1] * edge2[2])
+        };
+        for (uint32_t vertex_index : { _indices[index], _indices[index + 1], _indices[index + 2] })
+        {
+            _vertices[vertex_index].tangent[0] += tangent[0];
+            _vertices[vertex_index].tangent[1] += tangent[1];
+            _vertices[vertex_index].tangent[2] += tangent[2];
+        }
+    }
+
+    for (GLTF_VERTEX& vertex : _vertices)
+    {
+        const float normal_dot_tangent =
+            vertex.normal[0] * vertex.tangent[0] +
+            vertex.normal[1] * vertex.tangent[1] +
+            vertex.normal[2] * vertex.tangent[2];
+        vertex.tangent[0] -= vertex.normal[0] * normal_dot_tangent;
+        vertex.tangent[1] -= vertex.normal[1] * normal_dot_tangent;
+        vertex.tangent[2] -= vertex.normal[2] * normal_dot_tangent;
+        const float tangent_length = std::sqrt(
+            vertex.tangent[0] * vertex.tangent[0] +
+            vertex.tangent[1] * vertex.tangent[1] +
+            vertex.tangent[2] * vertex.tangent[2]);
+        if (tangent_length > 0.000001f)
+        {
+            vertex.tangent[0] /= tangent_length;
+            vertex.tangent[1] /= tangent_length;
+            vertex.tangent[2] /= tangent_length;
+        }
+        else
+        {
+            vertex.tangent[0] = 1.0f;
+            vertex.tangent[1] = 0.0f;
+            vertex.tangent[2] = 0.0f;
+        }
+    }
     return true;
 }
 
