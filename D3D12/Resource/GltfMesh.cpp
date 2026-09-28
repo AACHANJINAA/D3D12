@@ -202,11 +202,41 @@ bool GLTF_MESH::load(const std::filesystem::path& file_path)
     }
 
     _vertices.resize(vertex_count);
+    const float node_rotation_x = MATH::pi * 0.5f;
+    const float rotation_cosine = std::cos(node_rotation_x);
+    const float rotation_sine = std::sin(node_rotation_x);
+    const float model_rotation_y = MATH::pi;
+    const float model_rotation_cosine = std::cos(model_rotation_y);
+    const float model_rotation_sine = std::sin(model_rotation_y);
     for (size_t index = 0; index < vertex_count; ++index)
     {
         std::memcpy(_vertices[index].position, source_positions.data() + index * 3, sizeof(float) * 3);
         std::memcpy(_vertices[index].normal, source_normals.data() + index * 3, sizeof(float) * 3);
         std::memcpy(_vertices[index].uv, source_uvs.data() + index * 2, sizeof(float) * 2);
+
+        const float position_y = _vertices[index].position[1];
+        const float position_z = _vertices[index].position[2];
+        _vertices[index].position[1] = position_y * rotation_cosine - position_z * rotation_sine;
+        _vertices[index].position[2] = position_y * rotation_sine + position_z * rotation_cosine;
+
+        const float rotated_position_x = _vertices[index].position[0];
+        const float rotated_position_z = _vertices[index].position[2];
+        _vertices[index].position[0] = rotated_position_x * model_rotation_cosine +
+            rotated_position_z * model_rotation_sine;
+        _vertices[index].position[2] = -rotated_position_x * model_rotation_sine +
+            rotated_position_z * model_rotation_cosine;
+
+        const float normal_y = _vertices[index].normal[1];
+        const float normal_z = _vertices[index].normal[2];
+        _vertices[index].normal[1] = normal_y * rotation_cosine - normal_z * rotation_sine;
+        _vertices[index].normal[2] = normal_y * rotation_sine + normal_z * rotation_cosine;
+
+        const float rotated_normal_x = _vertices[index].normal[0];
+        const float rotated_normal_z = _vertices[index].normal[2];
+        _vertices[index].normal[0] = rotated_normal_x * model_rotation_cosine +
+            rotated_normal_z * model_rotation_sine;
+        _vertices[index].normal[2] = -rotated_normal_x * model_rotation_sine +
+            rotated_normal_z * model_rotation_cosine;
     }
 
     _indices.assign(source_indices.begin(), source_indices.end());

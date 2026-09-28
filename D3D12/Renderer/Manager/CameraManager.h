@@ -20,4 +20,9 @@ private:
     MATH::VECTOR3 _position{ 0.0f, 0.0f, -6.0f };
     float _yaw = 0.0f;
     float _pitch = 0.0f;
+    float _orbit_angle = MATH::pi;
+    float _orbit_elevation = 0.0f;
+    float _orbit_radius = 4.0f;
+    bool _is_orbiting = false;
+    bool _was_orbit_key_down = false;
 };
