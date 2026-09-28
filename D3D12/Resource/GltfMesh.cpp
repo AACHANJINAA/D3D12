@@ -240,6 +240,7 @@ bool GLTF_MESH::load(const std::filesystem::path& file_path)
     }
 
     _indices.assign(source_indices.begin(), source_indices.end());
+    std::vector<float> bitangent_accumulation(_vertices.size() * 3, 0.0f);
 
     for (size_t index = 0; index + 2 < _indices.size(); index += 3)
     {
@@ -280,16 +281,26 @@ bool GLTF_MESH::load(const std::filesystem::path& file_path)
             inverse_determinant * (delta_uv2[1] * edge1[1] - delta_uv1[1] * edge2[1]),
             inverse_determinant * (delta_uv2[1] * edge1[2] - delta_uv1[1] * edge2[2])
         };
+        const float bitangent[3]
+        {
+            inverse_determinant * (delta_uv1[0] * edge2[0] - delta_uv2[0] * edge1[0]),
+            inverse_determinant * (delta_uv1[0] * edge2[1] - delta_uv2[0] * edge1[1]),
+            inverse_determinant * (delta_uv1[0] * edge2[2] - delta_uv2[0] * edge1[2])
+        };
         for (uint32_t vertex_index : { _indices[index], _indices[index + 1], _indices[index + 2] })
         {
             _vertices[vertex_index].tangent[0] += tangent[0];
             _vertices[vertex_index].tangent[1] += tangent[1];
             _vertices[vertex_index].tangent[2] += tangent[2];
+            bitangent_accumulation[vertex_index * 3 + 0] += bitangent[0];
+            bitangent_accumulation[vertex_index * 3 + 1] += bitangent[1];
+            bitangent_accumulation[vertex_index * 3 + 2] += bitangent[2];
         }
     }
 
-    for (GLTF_VERTEX& vertex : _vertices)
+    for (size_t vertex_index = 0; vertex_index < _vertices.size(); ++vertex_index)
     {
+        GLTF_VERTEX& vertex = _vertices[vertex_index];
         const float normal_dot_tangent =
             vertex.normal[0] * vertex.tangent[0] +
             vertex.normal[1] * vertex.tangent[1] +
@@ -313,6 +324,17 @@ bool GLTF_MESH::load(const std::filesystem::path& file_path)
             vertex.tangent[1] = 0.0f;
             vertex.tangent[2] = 0.0f;
         }
+        const float bitangent_x =
+            vertex.normal[1] * vertex.tangent[2] - vertex.normal[2] * vertex.tangent[1];
+        const float bitangent_y =
+            vertex.normal[2] * vertex.tangent[0] - vertex.normal[0] * vertex.tangent[2];
+        const float bitangent_z =
+            vertex.normal[0] * vertex.tangent[1] - vertex.normal[1] * vertex.tangent[0];
+        const float handedness =
+            bitangent_x * bitangent_accumulation[vertex_index * 3 + 0] +
+            bitangent_y * bitangent_accumulation[vertex_index * 3 + 1] +
+            bitangent_z * bitangent_accumulation[vertex_index * 3 + 2];
+        vertex.tangent[3] = handedness < 0.0f ? -1.0f : 1.0f;
     }
     return true;
 }

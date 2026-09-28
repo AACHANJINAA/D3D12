@@ -70,7 +70,7 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="Renderer\Shader\Triangle.hlsl">
+    <None Include="Renderer\Shader\Mesh.hlsl">
       <Filter>리소스 파일</Filter>
     </None>
     <None Include="Renderer\Shader\Skybox.hlsl">

@@ -8,9 +8,9 @@ bool MESH_RENDER_PASS::initialize(ID3D12Device* device)
     ComPtr<ID3DBlob> vertex_shader;
     ComPtr<ID3DBlob> white_pixel_shader;
     ComPtr<ID3DBlob> black_pixel_shader;
-    if (!SHADER::get_instance().compile_shader(L"Triangle.hlsl", "VS_Triangle", "vs_5_0", vertex_shader) ||
-        !SHADER::get_instance().compile_shader(L"Triangle.hlsl", "PS_Color", "ps_5_0", white_pixel_shader) ||
-        !SHADER::get_instance().compile_shader(L"Triangle.hlsl", "PS_Black", "ps_5_0", black_pixel_shader))
+    if (!SHADER::get_instance().compile_shader(L"Mesh.hlsl", "VS_Mesh", "vs_5_0", vertex_shader) ||
+        !SHADER::get_instance().compile_shader(L"Mesh.hlsl", "PS_Mesh", "ps_5_0", white_pixel_shader) ||
+        !SHADER::get_instance().compile_shader(L"Mesh.hlsl", "PS_Wireframe", "ps_5_0", black_pixel_shader))
     {
         return false;
     }
@@ -69,9 +69,9 @@ bool MESH_RENDER_PASS::initialize(ID3D12Device* device)
             D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
         { "NORMAL", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 12,
             D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-        { "TANGENT", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 24,
+        { "TANGENT", 0, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, 24,
             D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-        { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 36,
+        { "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 40,
             D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
     };
 

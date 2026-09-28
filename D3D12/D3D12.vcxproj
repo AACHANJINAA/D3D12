@@ -274,7 +274,7 @@
     <ClInclude Include="Resource\Texture.h" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="Renderer\Shader\Triangle.hlsl">
+    <None Include="Renderer\Shader\Mesh.hlsl">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Include="Renderer\Shader\Skybox.hlsl">
