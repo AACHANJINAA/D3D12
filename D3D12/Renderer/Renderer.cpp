@@ -19,6 +19,11 @@ namespace
         float light_intensity = 0.0f;
         MATH::VECTOR3 light_color;
         float padding = 0.0f;
+        MATH::VECTOR3 camera_position;
+        float metallic = 0.0f;
+        float roughness = 0.5f;
+        float ambient_strength = 0.03f;
+        float reserved[2]{};
     };
 
     static_assert(sizeof(FRAME_DATA) <= D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
@@ -252,7 +257,7 @@ bool RENDERER::create_render_targets()
 
 bool RENDERER::create_vertex_buffer()
 {
-    if (!_gltf_mesh.load(get_asset_path(L"Mesh/DemagedHelmet/DamagedHelmet.gltf")))
+    if (!_gltf_mesh.load(get_asset_path(L"Mesh/DamagedHelmet/DamagedHelmet.gltf")))
     {
         return false;
     }
@@ -351,7 +356,7 @@ bool RENDERER::create_texture()
     if (!_albedo_texture.initialize(
         _device.Get(),
         _command_list.Get(),
-        get_asset_path(L"Mesh/DemagedHelmet/Default_albedo.jpg")))
+        get_asset_path(L"Mesh/DamagedHelmet/Default_albedo.jpg")))
     {
         return false;
     }
@@ -383,6 +388,10 @@ void RENDERER::render_frame()
     frame_data.light_direction = directional_light.direction;
     frame_data.light_intensity = directional_light.intensity;
     frame_data.light_color = directional_light.color;
+    frame_data.camera_position = CAMERA_MANAGER::get_instance().get_position();
+    frame_data.metallic = 0.85f;
+    frame_data.roughness = 0.35f;
+    frame_data.ambient_strength = 0.03f;
     std::memcpy(_constant_data, &frame_data, sizeof(frame_data));
 
     _command_allocator->Reset();

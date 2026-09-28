@@ -271,32 +271,32 @@
     <None Include="Renderer\Shader\Triangle.hlsl">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="..\Asset\Mesh\DemagedHelmet\DamagedHelmet.gltf">
-      <Link>Asset\Mesh\DemagedHelmet\DamagedHelmet.gltf</Link>
+    <None Include="..\Asset\Mesh\DamagedHelmet\DamagedHelmet.gltf">
+      <Link>Asset\Mesh\DamagedHelmet\DamagedHelmet.gltf</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="..\Asset\Mesh\DemagedHelmet\DamagedHelmet.bin">
-      <Link>Asset\Mesh\DemagedHelmet\DamagedHelmet.bin</Link>
+    <None Include="..\Asset\Mesh\DamagedHelmet\DamagedHelmet.bin">
+      <Link>Asset\Mesh\DamagedHelmet\DamagedHelmet.bin</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="..\Asset\Mesh\DemagedHelmet\Default_albedo.jpg">
-      <Link>Asset\Mesh\DemagedHelmet\Default_albedo.jpg</Link>
+    <None Include="..\Asset\Mesh\DamagedHelmet\Default_albedo.jpg">
+      <Link>Asset\Mesh\DamagedHelmet\Default_albedo.jpg</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="..\Asset\Mesh\DemagedHelmet\Default_normal.jpg">
-      <Link>Asset\Mesh\DemagedHelmet\Default_normal.jpg</Link>
+    <None Include="..\Asset\Mesh\DamagedHelmet\Default_normal.jpg">
+      <Link>Asset\Mesh\DamagedHelmet\Default_normal.jpg</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="..\Asset\Mesh\DemagedHelmet\Default_metalRoughness.jpg">
-      <Link>Asset\Mesh\DemagedHelmet\Default_metalRoughness.jpg</Link>
+    <None Include="..\Asset\Mesh\DamagedHelmet\Default_metalRoughness.jpg">
+      <Link>Asset\Mesh\DamagedHelmet\Default_metalRoughness.jpg</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="..\Asset\Mesh\DemagedHelmet\Default_AO.jpg">
-      <Link>Asset\Mesh\DemagedHelmet\Default_AO.jpg</Link>
+    <None Include="..\Asset\Mesh\DamagedHelmet\Default_AO.jpg">
+      <Link>Asset\Mesh\DamagedHelmet\Default_AO.jpg</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="..\Asset\Mesh\DemagedHelmet\Default_emissive.jpg">
-      <Link>Asset\Mesh\DemagedHelmet\Default_emissive.jpg</Link>
+    <None Include="..\Asset\Mesh\DamagedHelmet\Default_emissive.jpg">
+      <Link>Asset\Mesh\DamagedHelmet\Default_emissive.jpg</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Include="..\Asset\Skybox\cloudy\cloudy_skybox.dds">

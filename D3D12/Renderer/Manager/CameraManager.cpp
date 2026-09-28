@@ -125,3 +125,8 @@ MATH::MATRIX4X4 CAMERA_MANAGER::get_view_projection(float aspect_ratio) const
         MATH::pi / 3.0f, aspect_ratio, 0.1f, 100.0f);
     return MATH::multiply(view, projection);
 }
+
+const MATH::VECTOR3& CAMERA_MANAGER::get_position() const
+{
+    return _position;
+}

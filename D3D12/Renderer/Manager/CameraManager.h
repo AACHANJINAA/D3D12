@@ -13,6 +13,7 @@ public:
     void initialize();
     void update(float delta_time);
     MATH::MATRIX4X4 get_view_projection(float aspect_ratio) const;
+    const MATH::VECTOR3& get_position() const;
 
 private:
     CAMERA_MANAGER() = default;
