@@ -3,33 +3,17 @@
 
 namespace
 {
-    struct VERTEX
+    std::filesystem::path get_resource_path(const wchar_t* file_name)
     {
-        float position[3];
-        float color[4];
-    };
-
-    constexpr VERTEX cube_vertices[] =
-    {
-        { { -0.45f, -0.45f, 0.25f }, { 1.0f, 0.0f, 0.0f, 1.0f } },
-        { { -0.45f,  0.45f, 0.25f }, { 0.0f, 1.0f, 0.0f, 1.0f } },
-        { {  0.45f,  0.45f, 0.25f }, { 0.0f, 0.0f, 1.0f, 1.0f } },
-        { {  0.45f, -0.45f, 0.25f }, { 1.0f, 1.0f, 0.0f, 1.0f } },
-        { { -0.45f, -0.45f, 0.75f }, { 1.0f, 0.0f, 1.0f, 1.0f } },
-        { { -0.45f,  0.45f, 0.75f }, { 0.0f, 1.0f, 1.0f, 1.0f } },
-        { {  0.45f,  0.45f, 0.75f }, { 1.0f, 1.0f, 1.0f, 1.0f } },
-        { {  0.45f, -0.45f, 0.75f }, { 0.25f, 0.25f, 0.25f, 1.0f } }
-    };
-
-    constexpr uint16_t cube_indices[] =
-    {
-        0, 1, 2, 0, 2, 3,
-        4, 6, 5, 4, 7, 6,
-        0, 4, 5, 0, 5, 1,
-        3, 2, 6, 3, 6, 7,
-        1, 5, 6, 1, 6, 2,
-        0, 3, 7, 0, 7, 4
-    };
+        wchar_t module_path[MAX_PATH]{};
+        const DWORD path_length = GetModuleFileNameW(nullptr, module_path, _countof(module_path));
+        if (path_length == 0)
+        {
+            return {};
+        }
+        return std::filesystem::path(std::wstring(module_path, path_length)).parent_path() /
+            L"Resource" / file_name;
+    }
 
 }
 
@@ -43,6 +27,12 @@ RENDERER::~RENDERER()
 bool RENDERER::initialize(HINSTANCE instance, int show_command)
 {
     _instance = instance;
+    const HRESULT com_result = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+    if (FAILED(com_result) && com_result != RPC_E_CHANGED_MODE)
+    {
+        return false;
+    }
+    _is_com_initialized = SUCCEEDED(com_result);
     if (!register_window_class() || !create_window(show_command))
     {
         return false;
@@ -50,7 +40,7 @@ bool RENDERER::initialize(HINSTANCE instance, int show_command)
 
     return initialize_device() && create_command_objects() && create_swap_chain() &&
         create_render_targets() && _pipeline.initialize(_device.Get()) && create_vertex_buffer() &&
-        create_constant_buffer() && create_fence();
+        create_constant_buffer() && create_fence() && create_texture();
 }
 
 int RENDERER::run()
@@ -235,8 +225,21 @@ bool RENDERER::create_render_targets()
 
 bool RENDERER::create_vertex_buffer()
 {
+    if (!_gltf_mesh.load(get_resource_path(L"DamagedHelmet.gltf")))
+    {
+        return false;
+    }
+
+    const auto& vertices = _gltf_mesh.get_vertices();
+    const auto& indices = _gltf_mesh.get_indices();
+    if (vertices.empty() || indices.empty())
+    {
+        return false;
+    }
+
     const CD3DX12_HEAP_PROPERTIES heap_properties(D3D12_HEAP_TYPE_UPLOAD);
-    const CD3DX12_RESOURCE_DESC resource_description = CD3DX12_RESOURCE_DESC::buffer(sizeof(cube_vertices));
+    const CD3DX12_RESOURCE_DESC resource_description = CD3DX12_RESOURCE_DESC::buffer(
+        sizeof(GLTF_VERTEX) * vertices.size());
     if (FAILED(_device->CreateCommittedResource(&heap_properties, D3D12_HEAP_FLAG_NONE,
         &resource_description, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr,
         IID_PPV_ARGS(&_vertex_buffer))))
@@ -248,13 +251,14 @@ bool RENDERER::create_vertex_buffer()
     {
         return false;
     }
-    std::memcpy(mapped_data, cube_vertices, sizeof(cube_vertices));
+    std::memcpy(mapped_data, vertices.data(), sizeof(GLTF_VERTEX) * vertices.size());
     _vertex_buffer->Unmap(0, nullptr);
     _vertex_buffer_view.BufferLocation = _vertex_buffer->GetGPUVirtualAddress();
-    _vertex_buffer_view.StrideInBytes = sizeof(VERTEX);
-    _vertex_buffer_view.SizeInBytes = sizeof(cube_vertices);
+    _vertex_buffer_view.StrideInBytes = sizeof(GLTF_VERTEX);
+    _vertex_buffer_view.SizeInBytes = static_cast<UINT>(sizeof(GLTF_VERTEX) * vertices.size());
 
-    const CD3DX12_RESOURCE_DESC index_description = CD3DX12_RESOURCE_DESC::buffer(sizeof(cube_indices));
+    const CD3DX12_RESOURCE_DESC index_description = CD3DX12_RESOURCE_DESC::buffer(
+        sizeof(uint32_t) * indices.size());
     if (FAILED(_device->CreateCommittedResource(&heap_properties, D3D12_HEAP_FLAG_NONE,
         &index_description, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr,
         IID_PPV_ARGS(&_index_buffer))))
@@ -269,11 +273,11 @@ bool RENDERER::create_vertex_buffer()
     {
         return false;
     }
-    std::memcpy(mapped_data, cube_indices, sizeof(cube_indices));
+    std::memcpy(mapped_data, indices.data(), sizeof(uint32_t) * indices.size());
     _index_buffer->Unmap(0, nullptr);
     _index_buffer_view.BufferLocation = _index_buffer->GetGPUVirtualAddress();
-    _index_buffer_view.SizeInBytes = sizeof(cube_indices);
-    _index_buffer_view.Format = DXGI_FORMAT_R16_UINT;
+    _index_buffer_view.SizeInBytes = static_cast<UINT>(sizeof(uint32_t) * indices.size());
+    _index_buffer_view.Format = DXGI_FORMAT_R32_UINT;
     return true;
 }
 
@@ -306,6 +310,32 @@ bool RENDERER::create_fence()
     }
     _fence_event = CreateEventW(nullptr, FALSE, FALSE, nullptr);
     return _fence_event != nullptr;
+}
+
+bool RENDERER::create_texture()
+{
+    if (FAILED(_command_allocator->Reset()) ||
+        FAILED(_command_list->Reset(_command_allocator.Get(), _pipeline.get_pipeline())))
+    {
+        return false;
+    }
+
+    if (!_albedo_texture.initialize(
+        _device.Get(),
+        _command_list.Get(),
+        get_resource_path(L"Default_albedo.jpg")))
+    {
+        return false;
+    }
+
+    if (FAILED(_command_list->Close()))
+    {
+        return false;
+    }
+    ID3D12CommandList* command_lists[] = { _command_list.Get() };
+    _command_queue->ExecuteCommandLists(1, command_lists);
+    move_to_next_frame();
+    return true;
 }
 
 void RENDERER::render_frame()
@@ -348,12 +378,17 @@ void RENDERER::render_frame()
     _command_list->RSSetScissorRects(1, &scissor_rect);
     _command_list->SetGraphicsRootSignature(_pipeline.get_root_signature());
     _command_list->SetGraphicsRootConstantBufferView(0, _constant_buffer->GetGPUVirtualAddress());
+    ID3D12DescriptorHeap* descriptor_heaps[] = { _albedo_texture.get_srv_heap() };
+    _command_list->SetDescriptorHeaps(1, descriptor_heaps);
+    _command_list->SetGraphicsRootDescriptorTable(1, _albedo_texture.get_gpu_handle());
     _command_list->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     _command_list->IASetVertexBuffers(0, 1, &_vertex_buffer_view);
     _command_list->IASetIndexBuffer(&_index_buffer_view);
-    _command_list->DrawIndexedInstanced(36, 1, 0, 0, 0);
+    _command_list->DrawIndexedInstanced(
+        static_cast<UINT>(_gltf_mesh.get_indices().size()), 1, 0, 0, 0);
     _command_list->SetPipelineState(_pipeline.get_wireframe_pipeline());
-    _command_list->DrawIndexedInstanced(36, 1, 0, 0, 0);
+    _command_list->DrawIndexedInstanced(
+        static_cast<UINT>(_gltf_mesh.get_indices().size()), 1, 0, 0, 0);
     const CD3DX12_RESOURCE_BARRIER to_present = CD3DX12_RESOURCE_BARRIER::transition(
         _render_targets[_frame_index].Get(),
         D3D12_RESOURCE_STATE_RENDER_TARGET,
@@ -425,6 +460,11 @@ void RENDERER::shutdown()
     {
         UnregisterClassW(window_class_name, _instance);
         _instance = nullptr;
+    }
+    if (_is_com_initialized)
+    {
+        CoUninitialize();
+        _is_com_initialized = false;
     }
 }
 

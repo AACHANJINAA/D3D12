@@ -8,11 +8,15 @@
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
+#include <fstream>
+#include <iterator>
 #include <string>
+#include <vector>
 
 #include <d3d12.h>
 #include <d3dcompiler.h>
 #include <dxgi1_6.h>
+#include <wincodec.h>
 #include <wrl.h>
 
 #include "Math.h"

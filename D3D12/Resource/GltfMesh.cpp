@@ -1,0 +1,224 @@
+#include "../Common/stdafx.h"
+#include "GltfMesh.h"
+
+namespace
+{
+    struct ACCESSOR_INFO
+    {
+        size_t buffer_view = 0;
+        size_t count = 0;
+    };
+
+    struct BUFFER_VIEW_INFO
+    {
+        size_t byte_offset = 0;
+        size_t byte_length = 0;
+    };
+
+    std::vector<std::string> get_objects(const std::string& json, const char* key)
+    {
+        const size_t key_position = json.find(key);
+        if (key_position == std::string::npos)
+        {
+            return {};
+        }
+
+        const size_t array_start = json.find('[', key_position);
+        if (array_start == std::string::npos)
+        {
+            return {};
+        }
+
+        std::vector<std::string> objects;
+        size_t object_start = std::string::npos;
+        int brace_depth = 0;
+        for (size_t index = array_start + 1; index < json.size(); ++index)
+        {
+            if (json[index] == '{')
+            {
+                if (brace_depth == 0)
+                {
+                    object_start = index;
+                }
+                ++brace_depth;
+            }
+            else if (json[index] == '}')
+            {
+                --brace_depth;
+                if (brace_depth == 0 && object_start != std::string::npos)
+                {
+                    objects.push_back(json.substr(object_start, index - object_start + 1));
+                    object_start = std::string::npos;
+                }
+            }
+            else if (json[index] == ']' && brace_depth == 0)
+            {
+                break;
+            }
+        }
+        return objects;
+    }
+
+    bool read_number(const std::string& object, const char* key, size_t& value)
+    {
+        const size_t key_position = object.find(key);
+        if (key_position == std::string::npos)
+        {
+            return false;
+        }
+
+        const size_t value_start = object.find(':', key_position);
+        if (value_start == std::string::npos)
+        {
+            return false;
+        }
+
+        try
+        {
+            value = std::stoull(object.substr(value_start + 1));
+        }
+        catch (...)
+        {
+            return false;
+        }
+        return true;
+    }
+
+    bool read_string(const std::string& object, const char* key, std::string& value)
+    {
+        const size_t key_position = object.find(key);
+        if (key_position == std::string::npos)
+        {
+            return false;
+        }
+
+        const size_t first_quote = object.find('"', object.find(':', key_position) + 1);
+        if (first_quote == std::string::npos)
+        {
+            return false;
+        }
+        const size_t second_quote = object.find('"', first_quote + 1);
+        if (second_quote == std::string::npos)
+        {
+            return false;
+        }
+        value = object.substr(first_quote + 1, second_quote - first_quote - 1);
+        return true;
+    }
+
+    template <typename T>
+    bool read_binary(const std::vector<uint8_t>& binary,
+        size_t offset, size_t count, std::vector<T>& output)
+    {
+        const size_t byte_size = sizeof(T) * count;
+        if (offset > binary.size() || byte_size > binary.size() - offset)
+        {
+            return false;
+        }
+        output.resize(count);
+        std::memcpy(output.data(), binary.data() + offset, byte_size);
+        return true;
+    }
+}
+
+bool GLTF_MESH::load(const std::filesystem::path& file_path)
+{
+    _vertices.clear();
+    _indices.clear();
+
+    std::ifstream gltf_file(file_path);
+    if (!gltf_file)
+    {
+        return false;
+    }
+    const std::string json((std::istreambuf_iterator<char>(gltf_file)), {});
+
+    const auto buffer_objects = get_objects(json, "\"buffers\"");
+    const auto buffer_view_objects = get_objects(json, "\"bufferViews\"");
+    const auto accessor_objects = get_objects(json, "\"accessors\"");
+    if (buffer_objects.empty() || buffer_view_objects.size() < 4 || accessor_objects.size() < 4)
+    {
+        return false;
+    }
+
+    std::string buffer_uri;
+    if (!read_string(buffer_objects[0], "\"uri\"", buffer_uri))
+    {
+        return false;
+    }
+
+    std::ifstream binary_file(file_path.parent_path() / buffer_uri, std::ios::binary);
+    if (!binary_file)
+    {
+        return false;
+    }
+    const std::vector<uint8_t> binary(
+        (std::istreambuf_iterator<char>(binary_file)), {});
+
+    std::vector<BUFFER_VIEW_INFO> buffer_views(buffer_view_objects.size());
+    for (size_t index = 0; index < buffer_view_objects.size(); ++index)
+    {
+        read_number(buffer_view_objects[index], "\"byteOffset\"", buffer_views[index].byte_offset);
+        if (!read_number(buffer_view_objects[index], "\"byteLength\"", buffer_views[index].byte_length))
+        {
+            return false;
+        }
+    }
+
+    std::vector<ACCESSOR_INFO> accessors(accessor_objects.size());
+    for (size_t index = 0; index < accessor_objects.size(); ++index)
+    {
+        if (!read_number(accessor_objects[index], "\"bufferView\"", accessors[index].buffer_view) ||
+            !read_number(accessor_objects[index], "\"count\"", accessors[index].count))
+        {
+            return false;
+        }
+    }
+
+    std::vector<uint16_t> source_indices;
+    std::vector<float> source_positions;
+    std::vector<float> source_normals;
+    std::vector<float> source_uvs;
+    if (!read_binary(binary,
+        buffer_views[accessors[0].buffer_view].byte_offset,
+        accessors[0].count, source_indices) ||
+        !read_binary(binary,
+        buffer_views[accessors[1].buffer_view].byte_offset,
+        accessors[1].count * 3, source_positions) ||
+        !read_binary(binary,
+        buffer_views[accessors[2].buffer_view].byte_offset,
+        accessors[2].count * 3, source_normals) ||
+        !read_binary(binary,
+        buffer_views[accessors[3].buffer_view].byte_offset,
+        accessors[3].count * 2, source_uvs))
+    {
+        return false;
+    }
+
+    const size_t vertex_count = accessors[1].count;
+    if (accessors[2].count != vertex_count || accessors[3].count != vertex_count)
+    {
+        return false;
+    }
+
+    _vertices.resize(vertex_count);
+    for (size_t index = 0; index < vertex_count; ++index)
+    {
+        std::memcpy(_vertices[index].position, source_positions.data() + index * 3, sizeof(float) * 3);
+        std::memcpy(_vertices[index].normal, source_normals.data() + index * 3, sizeof(float) * 3);
+        std::memcpy(_vertices[index].uv, source_uvs.data() + index * 2, sizeof(float) * 2);
+    }
+
+    _indices.assign(source_indices.begin(), source_indices.end());
+    return true;
+}
+
+const std::vector<GLTF_VERTEX>& GLTF_MESH::get_vertices() const
+{
+    return _vertices;
+}
+
+const std::vector<uint32_t>& GLTF_MESH::get_indices() const
+{
+    return _indices;
+}

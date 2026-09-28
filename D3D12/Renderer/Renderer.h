@@ -4,6 +4,8 @@
 #include "Manager/CameraManager.h"
 #include "Manager/InputManager.h"
 #include "Pipeline.h"
+#include "../Resource/GltfMesh.h"
+#include "../Resource/Texture.h"
 
 class RENDERER
 {
@@ -30,6 +32,7 @@ private:
     bool create_vertex_buffer();
     bool create_constant_buffer();
     bool create_fence();
+    bool create_texture();
     void render_frame();
     void wait_for_gpu();
     void move_to_next_frame();
@@ -49,6 +52,8 @@ private:
     ComPtr<ID3D12CommandAllocator> _command_allocator;
     ComPtr<ID3D12GraphicsCommandList> _command_list;
     PIPELINE _pipeline;
+    GLTF_MESH _gltf_mesh;
+    TEXTURE _albedo_texture;
     ComPtr<ID3D12Resource> _vertex_buffer;
     D3D12_VERTEX_BUFFER_VIEW _vertex_buffer_view{};
     ComPtr<ID3D12Resource> _index_buffer;
@@ -59,4 +64,5 @@ private:
     UINT64 _fence_value = 0;
     HANDLE _fence_event = nullptr;
     UINT _frame_index = 0;
+    bool _is_com_initialized = false;
 };
