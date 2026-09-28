@@ -3,6 +3,7 @@
 #include "../Common/stdafx.h"
 #include "Manager/CameraManager.h"
 #include "Manager/InputManager.h"
+#include "Manager/LightManager.h"
 #include "Pipeline.h"
 #include "../Resource/GltfMesh.h"
 #include "../Resource/Texture.h"

@@ -237,6 +237,10 @@
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>..\..\Common\stdafx.h</PrecompiledHeaderFile>
     </ClCompile>
+    <ClCompile Include="Renderer\Manager\LightManager.cpp">
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>..\..\Common\stdafx.h</PrecompiledHeaderFile>
+    </ClCompile>
     <ClCompile Include="Renderer\Shader\Shader.cpp">
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>..\..\Common\stdafx.h</PrecompiledHeaderFile>
@@ -256,6 +260,7 @@
     <ClInclude Include="Renderer\Pipeline.h" />
     <ClInclude Include="Renderer\Manager\CameraManager.h" />
     <ClInclude Include="Renderer\Manager\InputManager.h" />
+    <ClInclude Include="Renderer\Manager\LightManager.h" />
     <ClInclude Include="Renderer\Shader\Shader.h" />
     <ClInclude Include="Common\Math.h" />
     <ClInclude Include="Common\D3DX12.h" />
@@ -266,13 +271,44 @@
     <None Include="Renderer\Shader\Triangle.hlsl">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="Resource\DamagedHelmet.gltf">
+    <None Include="..\Asset\Mesh\DemagedHelmet\DamagedHelmet.gltf">
+      <Link>Asset\Mesh\DemagedHelmet\DamagedHelmet.gltf</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="Resource\DamagedHelmet.bin">
+    <None Include="..\Asset\Mesh\DemagedHelmet\DamagedHelmet.bin">
+      <Link>Asset\Mesh\DemagedHelmet\DamagedHelmet.bin</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="Resource\Default_albedo.jpg">
+    <None Include="..\Asset\Mesh\DemagedHelmet\Default_albedo.jpg">
+      <Link>Asset\Mesh\DemagedHelmet\Default_albedo.jpg</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\Asset\Mesh\DemagedHelmet\Default_normal.jpg">
+      <Link>Asset\Mesh\DemagedHelmet\Default_normal.jpg</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\Asset\Mesh\DemagedHelmet\Default_metalRoughness.jpg">
+      <Link>Asset\Mesh\DemagedHelmet\Default_metalRoughness.jpg</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\Asset\Mesh\DemagedHelmet\Default_AO.jpg">
+      <Link>Asset\Mesh\DemagedHelmet\Default_AO.jpg</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\Asset\Mesh\DemagedHelmet\Default_emissive.jpg">
+      <Link>Asset\Mesh\DemagedHelmet\Default_emissive.jpg</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\Asset\Skybox\cloudy\cloudy_skybox.dds">
+      <Link>Asset\Skybox\cloudy\cloudy_skybox.dds</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\Asset\Skybox\cloudy\cloudy_specular.dds">
+      <Link>Asset\Skybox\cloudy\cloudy_specular.dds</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\Asset\Skybox\BRDF.dds">
+      <Link>Asset\Skybox\BRDF.dds</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>

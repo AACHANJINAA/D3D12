@@ -3,7 +3,27 @@
 
 namespace
 {
-    std::filesystem::path get_resource_path(const wchar_t* file_name)
+    bool report_initialization_failure(const wchar_t* stage)
+    {
+        OutputDebugStringW(L"D3D12 initialization failed: ");
+        OutputDebugStringW(stage);
+        OutputDebugStringW(L"\n");
+        MessageBoxW(nullptr, stage, L"D3D12 Initialization Error", MB_OK | MB_ICONERROR);
+        return false;
+    }
+
+    struct FRAME_DATA
+    {
+        MATH::MATRIX4X4 transform;
+        MATH::VECTOR3 light_direction;
+        float light_intensity = 0.0f;
+        MATH::VECTOR3 light_color;
+        float padding = 0.0f;
+    };
+
+    static_assert(sizeof(FRAME_DATA) <= D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
+
+    std::filesystem::path get_asset_path(const wchar_t* relative_path)
     {
         wchar_t module_path[MAX_PATH]{};
         const DWORD path_length = GetModuleFileNameW(nullptr, module_path, _countof(module_path));
@@ -12,7 +32,7 @@ namespace
             return {};
         }
         return std::filesystem::path(std::wstring(module_path, path_length)).parent_path() /
-            L"Resource" / file_name;
+            L"Asset" / relative_path;
     }
 
 }
@@ -38,9 +58,16 @@ bool RENDERER::initialize(HINSTANCE instance, int show_command)
         return false;
     }
 
-    return initialize_device() && create_command_objects() && create_swap_chain() &&
-        create_render_targets() && _pipeline.initialize(_device.Get()) && create_vertex_buffer() &&
-        create_constant_buffer() && create_fence() && create_texture();
+    if (!initialize_device()) return report_initialization_failure(L"initialize_device");
+    if (!create_command_objects()) return report_initialization_failure(L"create_command_objects");
+    if (!create_swap_chain()) return report_initialization_failure(L"create_swap_chain");
+    if (!create_render_targets()) return report_initialization_failure(L"create_render_targets");
+    if (!_pipeline.initialize(_device.Get())) return report_initialization_failure(L"pipeline.initialize");
+    if (!create_vertex_buffer()) return report_initialization_failure(L"create_vertex_buffer");
+    if (!create_constant_buffer()) return report_initialization_failure(L"create_constant_buffer");
+    if (!create_fence()) return report_initialization_failure(L"create_fence");
+    if (!create_texture()) return report_initialization_failure(L"create_texture");
+    return true;
 }
 
 int RENDERER::run()
@@ -225,7 +252,7 @@ bool RENDERER::create_render_targets()
 
 bool RENDERER::create_vertex_buffer()
 {
-    if (!_gltf_mesh.load(get_resource_path(L"DamagedHelmet.gltf")))
+    if (!_gltf_mesh.load(get_asset_path(L"Mesh/DemagedHelmet/DamagedHelmet.gltf")))
     {
         return false;
     }
@@ -268,6 +295,7 @@ bool RENDERER::create_vertex_buffer()
 
     INPUT_MANAGER::get_instance().initialize(_window);
     CAMERA_MANAGER::get_instance().initialize();
+    LIGHT_MANAGER::get_instance().initialize();
     mapped_data = nullptr;
     if (FAILED(_index_buffer->Map(0, nullptr, &mapped_data)))
     {
@@ -323,7 +351,7 @@ bool RENDERER::create_texture()
     if (!_albedo_texture.initialize(
         _device.Get(),
         _command_list.Get(),
-        get_resource_path(L"Default_albedo.jpg")))
+        get_asset_path(L"Mesh/DemagedHelmet/Default_albedo.jpg")))
     {
         return false;
     }
@@ -348,7 +376,14 @@ void RENDERER::render_frame()
     INPUT_MANAGER::get_instance().update();
     CAMERA_MANAGER::get_instance().update(delta_time);
     const MATH::MATRIX4X4 transform = CAMERA_MANAGER::get_instance().get_view_projection(1280.0f / 720.0f);
-    std::memcpy(_constant_data, &transform, sizeof(transform));
+    const DIRECTIONAL_LIGHT& directional_light =
+        LIGHT_MANAGER::get_instance().get_directional_light();
+    FRAME_DATA frame_data{};
+    frame_data.transform = transform;
+    frame_data.light_direction = directional_light.direction;
+    frame_data.light_intensity = directional_light.intensity;
+    frame_data.light_color = directional_light.color;
+    std::memcpy(_constant_data, &frame_data, sizeof(frame_data));
 
     _command_allocator->Reset();
     _command_list->Reset(_command_allocator.Get(), _pipeline.get_pipeline());

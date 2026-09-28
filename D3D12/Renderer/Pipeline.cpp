@@ -36,7 +36,7 @@ bool CUBE_PSO::initialize(ID3D12Device* device)
     }
 
     CD3DX12_ROOT_PARAMETER constant_buffer_parameter(
-        D3D12_ROOT_PARAMETER_TYPE_CBV, 0, D3D12_SHADER_VISIBILITY_VERTEX);
+        D3D12_ROOT_PARAMETER_TYPE_CBV, 0, D3D12_SHADER_VISIBILITY_ALL);
     D3D12_DESCRIPTOR_RANGE texture_range{};
     texture_range.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
     texture_range.NumDescriptors = 1;
@@ -76,6 +76,10 @@ bool CUBE_PSO::initialize(ID3D12Device* device)
         FAILED(device->CreateRootSignature(0, serialized_root_signature->GetBufferPointer(),
             serialized_root_signature->GetBufferSize(), IID_PPV_ARGS(&_root_signature))))
     {
+        if (root_signature_error != nullptr)
+        {
+            OutputDebugStringA(static_cast<const char*>(root_signature_error->GetBufferPointer()));
+        }
         return false;
     }
 

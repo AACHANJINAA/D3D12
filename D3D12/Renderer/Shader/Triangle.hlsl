@@ -1,6 +1,10 @@
 cbuffer OBJECT_DATA : register(b0)
 {
     row_major float4x4 transform;
+    float3 light_direction;
+    float light_intensity;
+    float3 light_color;
+    float padding;
 };
 
 Texture2D albedo_texture : register(t0);
@@ -31,7 +35,12 @@ VERTEX_OUTPUT VS_Triangle(VERTEX_INPUT input)
 
 float4 PS_Color(float4 position : SV_POSITION, float3 normal : NORMAL, float2 uv : TEXCOORD) : SV_TARGET
 {
-    return albedo_texture.Sample(texture_sampler, uv);
+    float4 albedo = albedo_texture.Sample(texture_sampler, uv);
+    float3 surface_normal = normalize(normal);
+    float3 to_light = normalize(-light_direction);
+    float diffuse = saturate(dot(surface_normal, to_light));
+    float3 lighting = 0.15f + diffuse * light_color * light_intensity;
+    return float4(albedo.rgb * lighting, albedo.a);
 }
 
 float4 PS_Black(float4 position : SV_POSITION) : SV_TARGET
