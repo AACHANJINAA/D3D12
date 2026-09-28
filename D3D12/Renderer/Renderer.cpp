@@ -380,6 +380,24 @@ bool RENDERER::create_texture()
         return false;
     }
 
+    if (!_material_textures.append_cubemap(
+        _device.Get(), _skybox_render_pass.get_cubemap()))
+    {
+        return false;
+    }
+    if (!_material_textures.append_brdf_lut(
+        _device.Get(), _command_list.Get(),
+        get_asset_path(L"Skybox/BRDF.dds")))
+    {
+        return false;
+    }
+    if (!_material_textures.append_specular_cubemap(
+        _device.Get(), _command_list.Get(),
+        get_asset_path(L"Skybox/cloudy/cloudy_specular.dds")))
+    {
+        return false;
+    }
+
     if (FAILED(_command_list->Close()))
     {
         return false;

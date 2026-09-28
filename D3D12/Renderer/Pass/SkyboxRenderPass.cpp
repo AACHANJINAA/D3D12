@@ -217,6 +217,11 @@ bool SKYBOX_RENDER_PASS::load_cubemap(
     return true;
 }
 
+ID3D12Resource* SKYBOX_RENDER_PASS::get_cubemap() const
+{
+    return _cubemap.Get();
+}
+
 void SKYBOX_RENDER_PASS::render(ID3D12GraphicsCommandList* command_list) const
 {
     command_list->SetPipelineState(_pipeline.Get());

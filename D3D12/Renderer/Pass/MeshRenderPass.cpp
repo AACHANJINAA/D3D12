@@ -19,7 +19,7 @@ bool MESH_RENDER_PASS::initialize(ID3D12Device* device)
         D3D12_ROOT_PARAMETER_TYPE_CBV, 0, D3D12_SHADER_VISIBILITY_ALL);
     D3D12_DESCRIPTOR_RANGE texture_range{};
     texture_range.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
-    texture_range.NumDescriptors = TEXTURE_SET::texture_count;
+    texture_range.NumDescriptors = TEXTURE_SET::specular_texture_index + 1;
     texture_range.BaseShaderRegister = 0;
     texture_range.RegisterSpace = 0;
     texture_range.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;

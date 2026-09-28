@@ -26,5 +26,8 @@ SKYBOX_OUTPUT VS_Skybox(uint vertex_id : SV_VertexID)
 float4 PS_Skybox(float4 position : SV_POSITION, float2 uv : TEXCOORD) : SV_TARGET
 {
     float3 direction = normalize(float3(uv * 2.0f - 1.0f, 1.0f));
-    return skybox_texture.Sample(skybox_sampler, direction);
+    float3 hdr_color = skybox_texture.Sample(skybox_sampler, direction).rgb;
+    float3 tone_mapped_color = hdr_color / (hdr_color + 1.0f);
+    tone_mapped_color = pow(max(tone_mapped_color, 0.0f), 1.0f / 2.2f);
+    return float4(tone_mapped_color, 1.0f);
 }

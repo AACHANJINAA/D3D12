@@ -10,6 +10,7 @@ public:
         ID3D12Device* device,
         ID3D12GraphicsCommandList* command_list,
         const std::filesystem::path& file_path);
+    ID3D12Resource* get_cubemap() const;
     void render(ID3D12GraphicsCommandList* command_list) const;
 
 private:
