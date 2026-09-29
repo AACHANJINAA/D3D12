@@ -26,10 +26,11 @@ struct VERTEX_OUTPUT
 VERTEX_OUTPUT VS_Mesh(VERTEX_INPUT input)
 {
     VERTEX_OUTPUT output;
-    output.world_position = input.position;
+    output.world_position = mul(float4(input.position, 1.0f), world_transform).xyz;
     output.position = mul(float4(output.world_position, 1.0f), transform);
-    output.normal = input.normal;
-    output.tangent = input.tangent;
+    output.normal = normalize(mul(input.normal, (float3x3)normal_transform));
+    output.tangent = float4(normalize(mul(input.tangent.xyz,
+        (float3x3)world_transform)), input.tangent.w);
     output.uv = input.uv;
     return output;
 }

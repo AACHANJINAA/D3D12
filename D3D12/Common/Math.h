@@ -106,6 +106,46 @@ namespace MATH
         return result;
     }
 
+    inline MATRIX4X4 matrix_rotation_degrees(const VECTOR3& degrees)
+    {
+        const float x = degrees.x * pi / 180.0f;
+        const float y = degrees.y * pi / 180.0f;
+        const float z = degrees.z * pi / 180.0f;
+        MATRIX4X4 rx = identity_matrix();
+        MATRIX4X4 ry = identity_matrix();
+        MATRIX4X4 rz = identity_matrix();
+        rx.values[1][1] = rx.values[2][2] = std::cos(x);
+        rx.values[1][2] = std::sin(x);
+        rx.values[2][1] = -std::sin(x);
+        ry.values[0][0] = ry.values[2][2] = std::cos(y);
+        ry.values[0][2] = -std::sin(y);
+        ry.values[2][0] = std::sin(y);
+        rz.values[0][0] = rz.values[1][1] = std::cos(z);
+        rz.values[0][1] = std::sin(z);
+        rz.values[1][0] = -std::sin(z);
+        return multiply(multiply(rx, ry), rz);
+    }
+
+    inline MATRIX4X4 matrix_world(const VECTOR3& position, const VECTOR3& rotation,
+        const VECTOR3& scale)
+    {
+        MATRIX4X4 result = matrix_rotation_degrees(rotation);
+        const float factors[3] = { scale.x, scale.y, scale.z };
+        for (int row = 0; row < 3; ++row)
+            for (int column = 0; column < 3; ++column)
+                result.values[row][column] *= factors[row];
+        result.values[3][0] = position.x;
+        result.values[3][1] = position.y;
+        result.values[3][2] = position.z;
+        return result;
+    }
+
+    inline MATRIX4X4 matrix_normal(const VECTOR3& rotation, const VECTOR3& scale)
+    {
+        // Inverse transpose of S*R is inverse(S)*R for positive, nonzero scales.
+        return matrix_world({}, rotation, { 1.0f / scale.x, 1.0f / scale.y, 1.0f / scale.z });
+    }
+
     inline MATRIX4X4 matrix_look_at_left_handed(
         const VECTOR3& eye,
         const VECTOR3& target,

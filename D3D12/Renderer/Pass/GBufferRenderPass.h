@@ -19,7 +19,7 @@ public:
     void render(ID3D12GraphicsCommandList* list,
         D3D12_CPU_DESCRIPTOR_HANDLE depth, D3D12_GPU_VIRTUAL_ADDRESS constants,
         ID3D12DescriptorHeap* materials, const D3D12_VERTEX_BUFFER_VIEW& vertices,
-        const D3D12_INDEX_BUFFER_VIEW& indices, UINT index_count) const;
+        const D3D12_INDEX_BUFFER_VIEW& indices, UINT index_count, bool iswireframe = false) const;
     ID3D12Resource* get_target(UINT index) const { return _targets[index].Get(); }
     ID3D12RootSignature* get_root_signature() const;
     ID3D12PipelineState* get_pipeline() const;
@@ -30,4 +30,5 @@ private:
     UINT _descriptor_size = 0;
     ComPtr<ID3D12RootSignature> _root_signature;
     ComPtr<ID3D12PipelineState> _pipeline;
+    ComPtr<ID3D12PipelineState> _wireframe_pipeline;
 };

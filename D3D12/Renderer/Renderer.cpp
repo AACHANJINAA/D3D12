@@ -18,20 +18,22 @@ namespace
         MATH::VECTOR3 light_direction;
         float light_intensity = 0.0f;
         MATH::VECTOR3 light_color;
-        float padding = 0.0f;
+        float exposure = 0.0f;
         MATH::VECTOR3 camera_position;
-        float camera_padding = 0.0f;
+        float environment_intensity = 1.0f;
         MATH::VECTOR4 base_color_factor;
         float metallic_factor = 1.0f;
         float roughness_factor = 1.0f;
         float ambient_strength = 0.03f;
-        float material_padding = 0.0f;
+        float depth_range = 20.0f;
         MATH::VECTOR3 emissive_factor;
-        float emissive_padding = 0.0f;
+        UINT view_mode = 0;
+        MATH::MATRIX4X4 world_transform;
+        MATH::MATRIX4X4 normal_transform;
     };
 
-    static_assert(sizeof(FRAME_DATA) == 160);
-    static_assert(sizeof(FRAME_DATA) <= D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
+    static_assert(sizeof(FRAME_DATA) == 288);
+    constexpr UINT frame_buffer_size = (sizeof(FRAME_DATA) + 255u) & ~255u;
 
     std::filesystem::path get_asset_path(const wchar_t* relative_path)
     {
@@ -84,6 +86,12 @@ bool RENDERER::initialize(HINSTANCE instance, int show_command)
     if (!create_fence()) return report_initialization_failure(L"create_fence");
     if (!create_texture()) return report_initialization_failure(L"create_texture");
     if (!update_deferred_resources()) return report_initialization_failure(L"deferred_resources");
+    if (!_ui.initialize(_window, _device.Get(), _command_queue.Get(), frame_count))
+        return report_initialization_failure(L"viewer_ui.initialize");
+    std::array<ID3D12Resource*, 5> previews{};
+    for (size_t index = 0; index < previews.size(); ++index)
+        previews[index] = _material_textures.get_texture(index);
+    _ui.set_textures(_device.Get(), previews);
     return true;
 }
 
@@ -427,7 +435,7 @@ bool RENDERER::create_constant_buffer()
 {
     const CD3DX12_HEAP_PROPERTIES heap_properties(D3D12_HEAP_TYPE_UPLOAD);
     const CD3DX12_RESOURCE_DESC description = CD3DX12_RESOURCE_DESC::buffer(
-        D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
+        frame_buffer_size);
     if (FAILED(_device->CreateCommittedResource(&heap_properties, D3D12_HEAP_FLAG_NONE,
         &description, D3D12_RESOURCE_STATE_GENERIC_READ, nullptr,
         IID_PPV_ARGS(&_constant_buffer))))
@@ -521,6 +529,10 @@ void RENDERER::render_frame()
     const float delta_time = (std::min)(
         static_cast<float>(current_time - last_frame_time) / 1000.0f, 0.1f);
     last_frame_time = current_time;
+    _ui.begin_frame(_viewer_settings, {
+        static_cast<UINT>(_gltf_mesh.get_vertices().size()),
+        static_cast<UINT>(_gltf_mesh.get_indices().size() / 3) });
+    INPUT_MANAGER::get_instance().set_ui_capture(_ui.wants_mouse(), _ui.wants_keyboard());
     INPUT_MANAGER::get_instance().update();
     static bool was_fullscreen_key_down = false;
     const bool is_fullscreen_key_down = GetForegroundWindow() == _window &&
@@ -531,6 +543,9 @@ void RENDERER::render_frame()
     }
     was_fullscreen_key_down = is_fullscreen_key_down;
     if (_is_render_failed) return;
+    LIGHT_MANAGER::get_instance().set_light(_viewer_settings.light_direction,
+        _viewer_settings.light_color, _viewer_settings.light_intensity,
+        _viewer_settings.is_light_orbiting);
     static bool was_light_orbit_key_down = false;
     const bool is_light_orbit_key_down = INPUT_MANAGER::get_instance().is_key_down('L');
     if (is_light_orbit_key_down && !was_light_orbit_key_down)
@@ -539,6 +554,9 @@ void RENDERER::render_frame()
     }
     was_light_orbit_key_down = is_light_orbit_key_down;
     LIGHT_MANAGER::get_instance().update(delta_time);
+    _viewer_settings.light_direction = LIGHT_MANAGER::get_instance().get_directional_light().direction;
+    _viewer_settings.is_light_orbiting = LIGHT_MANAGER::get_instance().is_orbiting();
+    CAMERA_MANAGER::get_instance().set_orbit_target(_viewer_settings.position);
     CAMERA_MANAGER::get_instance().update(delta_time);
     RECT client_rect{};
     GetClientRect(_window, &client_rect);
@@ -569,13 +587,24 @@ void RENDERER::render_frame()
     frame_data.camera_position = CAMERA_MANAGER::get_instance().get_position();
     const GLTF_MATERIAL& material = _gltf_mesh.get_material();
     frame_data.base_color_factor = {
-        material.base_color_factor[0], material.base_color_factor[1],
-        material.base_color_factor[2], material.base_color_factor[3] };
-    frame_data.metallic_factor = material.metallic_factor;
-    frame_data.roughness_factor = material.roughness_factor;
+        material.base_color_factor[0] * _viewer_settings.base_color.x,
+        material.base_color_factor[1] * _viewer_settings.base_color.y,
+        material.base_color_factor[2] * _viewer_settings.base_color.z,
+        material.base_color_factor[3] * _viewer_settings.base_color.w };
+    frame_data.metallic_factor = material.metallic_factor * _viewer_settings.metallic_multiplier;
+    frame_data.roughness_factor = material.roughness_factor * _viewer_settings.roughness_multiplier;
     frame_data.emissive_factor = {
-        material.emissive_factor[0], material.emissive_factor[1],
-        material.emissive_factor[2] };
+        material.emissive_factor[0] * _viewer_settings.emissive_multiplier,
+        material.emissive_factor[1] * _viewer_settings.emissive_multiplier,
+        material.emissive_factor[2] * _viewer_settings.emissive_multiplier };
+    frame_data.exposure = _viewer_settings.exposure;
+    frame_data.environment_intensity = _viewer_settings.environment_intensity;
+    frame_data.depth_range = _viewer_settings.depth_range;
+    frame_data.view_mode = static_cast<UINT>(_viewer_settings.mode);
+    frame_data.world_transform = MATH::matrix_world(_viewer_settings.position,
+        _viewer_settings.rotation, _viewer_settings.scale);
+    frame_data.normal_transform = MATH::matrix_normal(_viewer_settings.rotation,
+        _viewer_settings.scale);
     frame_data.ambient_strength = 0.03f;
     std::memcpy(_constant_data, &frame_data, sizeof(frame_data));
 
@@ -596,7 +625,7 @@ void RENDERER::render_frame()
     auto render_target_handle = _render_target_heap->GetCPUDescriptorHandleForHeapStart();
     render_target_handle.ptr += static_cast<SIZE_T>(_frame_index) * _render_target_descriptor_size;
     const auto depth_stencil_handle = _depth_stencil_heap->GetCPUDescriptorHandleForHeapStart();
-    constexpr float clear_color[] = { 0.05f, 0.05f, 0.08f, 1.0f };
+    constexpr float clear_color[] = { 0.22f, 0.23f, 0.25f, 1.0f };
     _command_list->ClearRenderTargetView(render_target_handle, clear_color, 0, nullptr);
     D3D12_VIEWPORT viewport{ 0.0f, 0.0f, client_width, client_height, 0.0f, 1.0f };
     D3D12_RECT scissor_rect{
@@ -607,12 +636,15 @@ void RENDERER::render_frame()
     _gbuffer_render_pass.render(_command_list.Get(), depth_stencil_handle,
         _constant_buffer->GetGPUVirtualAddress(), _material_textures.get_srv_heap(),
         _vertex_buffer_view, _index_buffer_view,
-        static_cast<UINT>(_gltf_mesh.get_indices().size()));
+        _viewer_settings.is_mesh_visible ? static_cast<UINT>(_gltf_mesh.get_indices().size()) : 0u,
+        _viewer_settings.mode == VIEW_MODE::wireframe);
 
     // Full-screen passes have depth disabled; keep geometry depth for future overlays.
     _command_list->OMSetRenderTargets(1, &render_target_handle, FALSE, nullptr);
-    _skybox_render_pass.render(_command_list.Get());
+    if (_viewer_settings.is_skybox_visible)
+        _skybox_render_pass.render(_command_list.Get(), _viewer_settings.exposure);
     _deferred_light_pass.render(_command_list.Get(), _constant_buffer->GetGPUVirtualAddress());
+    _ui.render(_command_list.Get());
     const CD3DX12_RESOURCE_BARRIER to_present = CD3DX12_RESOURCE_BARRIER::transition(
         _render_targets[_frame_index].Get(),
         D3D12_RESOURCE_STATE_RENDER_TARGET,
@@ -662,6 +694,7 @@ void RENDERER::wait_for_gpu()
 void RENDERER::shutdown()
 {
     wait_for_gpu();
+    _ui.shutdown();
     if (_fence_event != nullptr)
     {
         CloseHandle(_fence_event);
@@ -711,11 +744,21 @@ LRESULT CALLBACK RENDERER::window_procedure(HWND window, UINT message, WPARAM wp
         SetWindowLongPtrW(window, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(create_struct->lpCreateParams));
         return TRUE;
     }
-    INPUT_MANAGER::get_instance().process_message(message, wparam);
+    auto* renderer = reinterpret_cast<RENDERER*>(GetWindowLongPtrW(window, GWLP_USERDATA));
+    const bool ishandled = renderer && renderer->_ui.process_message(window, message, wparam, lparam);
+    INPUT_MANAGER::get_instance().process_message(message, wparam,
+        renderer && renderer->_ui.wants_mouse());
+    if (message == WM_GETMINMAXINFO)
+    {
+        auto* limits = reinterpret_cast<MINMAXINFO*>(lparam);
+        limits->ptMinTrackSize = { 920, 640 };
+        return 0;
+    }
     if (message == WM_DESTROY)
     {
         PostQuitMessage(0);
         return 0;
     }
+    if (ishandled) return 1;
     return DefWindowProcW(window, message, wparam, lparam);
 }

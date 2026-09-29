@@ -12,7 +12,8 @@ public:
 
     void initialize(HWND window);
     void update();
-    void process_message(UINT message, WPARAM wparam);
+    void process_message(UINT message, WPARAM wparam, bool iscaptured = false);
+    void set_ui_capture(bool ismouse, bool iskeyboard);
     bool is_key_down(int key) const;
     bool is_right_mouse_down() const;
     POINT get_mouse_delta() const;
@@ -24,4 +25,5 @@ private:
     HWND _window = nullptr;
     POINT _mouse_delta{};
     bool _is_right_mouse_down = false;
+    bool _is_keyboard_blocked = false;
 };

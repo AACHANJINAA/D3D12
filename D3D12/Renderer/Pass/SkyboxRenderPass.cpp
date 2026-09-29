@@ -29,6 +29,11 @@ bool SKYBOX_RENDER_PASS::initialize(ID3D12Device* device)
     root_parameter.DescriptorTable.NumDescriptorRanges = 1;
     root_parameter.DescriptorTable.pDescriptorRanges = &texture_range;
     root_parameter.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+    D3D12_ROOT_PARAMETER parameters[2]{};
+    parameters[0] = root_parameter;
+    parameters[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
+    parameters[1].Constants = { 0, 0, 1 };
+    parameters[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
     D3D12_STATIC_SAMPLER_DESC sampler{};
     sampler.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
     sampler.AddressU = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
@@ -44,7 +49,7 @@ bool SKYBOX_RENDER_PASS::initialize(ID3D12Device* device)
     sampler.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
     const D3D12_ROOT_SIGNATURE_DESC root_description
     {
-        1, &root_parameter, 1, &sampler, D3D12_ROOT_SIGNATURE_FLAG_NONE
+        2, parameters, 1, &sampler, D3D12_ROOT_SIGNATURE_FLAG_NONE
     };
     ComPtr<ID3DBlob> serialized_root_signature;
     ComPtr<ID3DBlob> root_signature_error;
@@ -222,10 +227,11 @@ ID3D12Resource* SKYBOX_RENDER_PASS::get_cubemap() const
     return _cubemap.Get();
 }
 
-void SKYBOX_RENDER_PASS::render(ID3D12GraphicsCommandList* command_list) const
+void SKYBOX_RENDER_PASS::render(ID3D12GraphicsCommandList* command_list, float exposure) const
 {
     command_list->SetPipelineState(_pipeline.Get());
     command_list->SetGraphicsRootSignature(_root_signature.Get());
+    command_list->SetGraphicsRoot32BitConstants(1, 1, &exposure, 0);
     ID3D12DescriptorHeap* descriptor_heaps[] = { _srv_heap.Get() };
     command_list->SetDescriptorHeaps(1, descriptor_heaps);
     command_list->SetGraphicsRootDescriptorTable(

@@ -22,6 +22,23 @@ float4 PS_Deferred(float4 position : SV_POSITION) : SV_TARGET
     float3 normal = normalize(gbuffer_normal.Load(pixel).xyz * 2.0f - 1.0f);
     float3 material = gbuffer_material.Load(pixel).xyz;
     float3 emissive = gbuffer_emissive.Load(pixel).rgb;
+    if (view_mode == 1) return float4(pow(saturate(albedo.rgb), 1.0f / 2.2f), 1);
+    if (view_mode == 2) return float4(normal * 0.5f + 0.5f, 1);
+    if (view_mode == 3) return float4(material.xxx, 1);
+    if (view_mode == 4) return float4(material.yyy, 1);
+    if (view_mode == 5) return float4(material.zzz, 1);
+    if (view_mode == 6)
+    {
+        float3 color = emissive * exp2(exposure);
+        return float4(pow(saturate(color / (color + 1)), 1.0f / 2.2f), 1);
+    }
+    if (view_mode == 7)
+    {
+        float view_depth = mul(float4(world.xyz, 1), transform).w;
+        float depth = saturate(view_depth / max(depth_range, 0.1f));
+        return float4(depth.xxx, 1);
+    }
+    if (view_mode == 8) return float4(0.9f, 0.9f, 0.9f, 1);
     return shade_surface(albedo, world.xyz, normal, material.x,
         max(material.y, 0.04f), material.z, emissive);
 }

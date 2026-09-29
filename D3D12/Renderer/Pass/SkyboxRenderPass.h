@@ -11,7 +11,7 @@ public:
         ID3D12GraphicsCommandList* command_list,
         const std::filesystem::path& file_path);
     ID3D12Resource* get_cubemap() const;
-    void render(ID3D12GraphicsCommandList* command_list) const;
+    void render(ID3D12GraphicsCommandList* command_list, float exposure = 0.0f) const;
 
 private:
     ComPtr<ID3D12RootSignature> _root_signature;

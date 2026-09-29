@@ -40,25 +40,37 @@ void INPUT_MANAGER::update()
     }
 }
 
-void INPUT_MANAGER::process_message(UINT message, WPARAM wparam)
+void INPUT_MANAGER::set_ui_capture(bool ismouse, bool iskeyboard)
 {
-    if (message == WM_RBUTTONDOWN)
+    _is_keyboard_blocked = iskeyboard;
+    if (ismouse && _is_right_mouse_down)
+    {
+        _is_right_mouse_down = false;
+        if (GetCapture() == _window) ReleaseCapture();
+        _mouse_delta = {};
+    }
+}
+
+void INPUT_MANAGER::process_message(UINT message, WPARAM wparam, bool iscaptured)
+{
+    if (message == WM_RBUTTONDOWN && !iscaptured && _window != nullptr)
     {
         _is_right_mouse_down = true;
         SetCapture(_window);
         center_cursor();
     }
-    else if (message == WM_RBUTTONUP)
+    else if (message == WM_RBUTTONUP || message == WM_KILLFOCUS || message == WM_CAPTURECHANGED)
     {
         _is_right_mouse_down = false;
-        ReleaseCapture();
+        if (GetCapture() == _window) ReleaseCapture();
         _mouse_delta = {};
     }
 }
 
 bool INPUT_MANAGER::is_key_down(int key) const
 {
-    return (GetAsyncKeyState(key) & 0x8000) != 0;
+    return !_is_keyboard_blocked && GetForegroundWindow() == _window &&
+        (GetAsyncKeyState(key) & 0x8000) != 0;
 }
 
 bool INPUT_MANAGER::is_right_mouse_down() const

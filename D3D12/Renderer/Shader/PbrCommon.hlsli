@@ -4,16 +4,18 @@ cbuffer OBJECT_DATA : register(b0)
     float3 light_direction;
     float light_intensity;
     float3 light_color;
-    float padding;
+    float exposure;
     float3 camera_position;
-    float camera_padding;
+    float environment_intensity;
     float4 base_color_factor;
     float metallic_factor;
     float roughness_factor;
     float ambient_strength;
-    float material_padding;
+    float depth_range;
     float3 emissive_factor;
-    float emissive_padding;
+    uint view_mode;
+    row_major float4x4 world_transform;
+    row_major float4x4 normal_transform;
 };
 
 TextureCube environment_texture : register(t5);
@@ -113,7 +115,8 @@ float4 shade_surface(float4 albedo, float3 world_position, float3 surface_normal
         split_sum_specular;
     float3 hdr_color =
         albedo.rgb * ambient_strength * ambient_occlusion +
-        direct_lighting + environment_lighting + emissive;
+        direct_lighting + environment_lighting * environment_intensity + emissive;
+    hdr_color *= exp2(exposure);
     float3 tone_mapped_color = hdr_color / (hdr_color + 1.0f);
     tone_mapped_color = pow(max(tone_mapped_color, 0.0f), 1.0f / 2.2f);
     return float4(tone_mapped_color, albedo.a);

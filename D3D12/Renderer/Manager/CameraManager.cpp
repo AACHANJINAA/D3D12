@@ -72,7 +72,8 @@ void CAMERA_MANAGER::update(float delta_time)
             std::cos(_orbit_angle) * horizontal_radius
         };
 
-        const MATH::VECTOR3 to_target = MATH::subtract({ 0.0f, 0.0f, 0.0f }, _position);
+        _position = MATH::add(_position, _orbit_target);
+        const MATH::VECTOR3 to_target = MATH::subtract(_orbit_target, _position);
         const MATH::VECTOR3 direction = MATH::normalize(to_target);
         _yaw = std::atan2(direction.x, direction.z);
         _pitch = std::asin(direction.y);

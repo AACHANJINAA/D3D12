@@ -224,6 +224,36 @@
       <SDLCheck>true</SDLCheck>
       <LinkCompiled>true</LinkCompiled>
     </ClCompile>
+    <ClCompile Include="UI\ViewerUi.cpp">
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>..\Common\stdafx.h</PrecompiledHeaderFile>
+    </ClCompile>
+    <ClCompile Include="UI\ViewerPanels.cpp">
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>..\Common\stdafx.h</PrecompiledHeaderFile>
+    </ClCompile>
+    <ClCompile Include="UI\UiTheme.cpp">
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>..\Common\stdafx.h</PrecompiledHeaderFile>
+    </ClCompile>
+    <ClCompile Include="ThirdParty\ImGui\imgui.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="ThirdParty\ImGui\imgui_draw.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="ThirdParty\ImGui\imgui_tables.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="ThirdParty\ImGui\imgui_widgets.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="ThirdParty\ImGui\backends\imgui_impl_win32.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="ThirdParty\ImGui\backends\imgui_impl_dx12.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
     <ClCompile Include="Renderer\Renderer.cpp">
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>..\Common\stdafx.h</PrecompiledHeaderFile>
@@ -272,6 +302,10 @@
   <ItemGroup>
     <ClInclude Include="Common\stdafx.h" />
     <ClInclude Include="Renderer\Renderer.h" />
+    <ClInclude Include="UI\ViewerUi.h" />
+    <ClInclude Include="UI\ViewerPanels.h" />
+    <ClInclude Include="UI\UiTheme.h" />
+    <ClInclude Include="Renderer\ViewerSettings.h" />
     <ClInclude Include="Renderer\Pass\GBufferRenderPass.h" />
     <ClInclude Include="Renderer\Pass\DeferredLightPass.h" />
     <ClInclude Include="Renderer\Manager\CameraManager.h" />
@@ -284,6 +318,8 @@
     <ClInclude Include="Resource\Texture.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="ThirdParty\ImGui\LICENSE.txt" />
+    <None Include="ThirdParty\ImGui\VERSION.txt" />
     <None Include="Renderer\Shader\Mesh.hlsl">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
@@ -348,8 +384,13 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup>
     <Link>
-      <AdditionalDependencies>d3d12.lib;dxgi.lib;d3dcompiler.lib;windowscodecs.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>d3d12.lib;dxgi.lib;d3dcompiler.lib;windowscodecs.lib;dwmapi.lib;imm32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <AdditionalIncludeDirectories>$(ProjectDir)ThirdParty\ImGui;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

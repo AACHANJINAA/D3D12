@@ -5,6 +5,10 @@ struct SKYBOX_OUTPUT
 };
 
 TextureCube skybox_texture : register(t0);
+cbuffer SKYBOX_SETTINGS : register(b0)
+{
+    float exposure;
+};
 SamplerState skybox_sampler : register(s0);
 
 SKYBOX_OUTPUT VS_Skybox(uint vertex_id : SV_VertexID)
@@ -27,6 +31,7 @@ float4 PS_Skybox(float4 position : SV_POSITION, float2 uv : TEXCOORD) : SV_TARGE
 {
     float3 direction = normalize(float3(uv * 2.0f - 1.0f, 1.0f));
     float3 hdr_color = skybox_texture.Sample(skybox_sampler, direction).rgb;
+    hdr_color *= exp2(exposure);
     float3 tone_mapped_color = hdr_color / (hdr_color + 1.0f);
     tone_mapped_color = pow(max(tone_mapped_color, 0.0f), 1.0f / 2.2f);
     return float4(tone_mapped_color, 1.0f);

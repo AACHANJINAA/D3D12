@@ -25,6 +25,7 @@ public:
         const std::filesystem::path& file_path);
 
     ID3D12DescriptorHeap* get_srv_heap() const;
+    ID3D12Resource* get_texture(size_t index) const { return _textures[index].Get(); }
     ID3D12Resource* get_brdf_lut() const { return _brdf_lut.Get(); }
     ID3D12Resource* get_specular_cubemap() const { return _specular_cubemap.Get(); }
     D3D12_GPU_DESCRIPTOR_HANDLE get_gpu_handle() const;

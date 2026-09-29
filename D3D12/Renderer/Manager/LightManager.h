@@ -21,6 +21,9 @@ public:
     void initialize();
     void update(float delta_time);
     void toggle_orbit();
+    void set_light(const MATH::VECTOR3& direction, const MATH::VECTOR3& color,
+        float intensity, bool isorbiting);
+    bool is_orbiting() const { return _is_orbiting; }
     const DIRECTIONAL_LIGHT& get_directional_light() const;
 
 private:

@@ -9,6 +9,7 @@
 #include "Pass/SkyboxRenderPass.h"
 #include "../Resource/GltfMesh.h"
 #include "../Resource/Texture.h"
+#include "../UI/ViewerUi.h"
 
 class RENDERER
 {
@@ -63,6 +64,8 @@ private:
     SKYBOX_RENDER_PASS _skybox_render_pass;
     GLTF_MESH _gltf_mesh;
     TEXTURE_SET _material_textures;
+    VIEWER_UI _ui;
+    VIEWER_SETTINGS _viewer_settings;
     ComPtr<ID3D12Resource> _vertex_buffer;
     D3D12_VERTEX_BUFFER_VIEW _vertex_buffer_view{};
     ComPtr<ID3D12Resource> _index_buffer;

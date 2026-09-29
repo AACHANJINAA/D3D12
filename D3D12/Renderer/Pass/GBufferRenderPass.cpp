@@ -80,7 +80,11 @@ bool GBUFFER_RENDER_PASS::initialize(ID3D12Device* device)
         description.RTVFormats[index] = formats[index];
     description.DSVFormat = DXGI_FORMAT_D32_FLOAT;
     description.SampleDesc.Count = 1;
-    return SUCCEEDED(device->CreateGraphicsPipelineState(&description, IID_PPV_ARGS(&_pipeline)));
+    if (FAILED(device->CreateGraphicsPipelineState(&description, IID_PPV_ARGS(&_pipeline))))
+        return false;
+    description.RasterizerState.FillMode = D3D12_FILL_MODE_WIREFRAME;
+    return SUCCEEDED(device->CreateGraphicsPipelineState(
+        &description, IID_PPV_ARGS(&_wireframe_pipeline)));
 }
 
 ID3D12RootSignature* GBUFFER_RENDER_PASS::get_root_signature() const { return _root_signature.Get(); }
@@ -121,7 +125,7 @@ void GBUFFER_RENDER_PASS::release_targets()
 void GBUFFER_RENDER_PASS::render(ID3D12GraphicsCommandList* list,
     D3D12_CPU_DESCRIPTOR_HANDLE depth, D3D12_GPU_VIRTUAL_ADDRESS constants,
     ID3D12DescriptorHeap* materials, const D3D12_VERTEX_BUFFER_VIEW& vertices,
-    const D3D12_INDEX_BUFFER_VIEW& indices, UINT index_count) const
+    const D3D12_INDEX_BUFFER_VIEW& indices, UINT index_count, bool iswireframe) const
 {
     std::array<D3D12_RESOURCE_BARRIER, target_count> barriers{};
     for (UINT index = 0; index < target_count; ++index)
@@ -137,7 +141,7 @@ void GBUFFER_RENDER_PASS::render(ID3D12GraphicsCommandList* list,
         handle.ptr += _descriptor_size;
     }
     list->ClearDepthStencilView(depth, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
-    list->SetPipelineState(_pipeline.Get());
+    list->SetPipelineState(iswireframe ? _wireframe_pipeline.Get() : _pipeline.Get());
     list->SetGraphicsRootSignature(_root_signature.Get());
     list->SetGraphicsRootConstantBufferView(0, constants);
     list->SetDescriptorHeaps(1, &materials);

@@ -38,6 +38,16 @@ void LIGHT_MANAGER::toggle_orbit()
     _is_orbiting = !_is_orbiting;
 }
 
+void LIGHT_MANAGER::set_light(const MATH::VECTOR3& direction, const MATH::VECTOR3& color,
+    float intensity, bool isorbiting)
+{
+    if (MATH::length(direction) > 0.0001f)
+        _directional_light.direction = MATH::normalize(direction);
+    _directional_light.color = color;
+    _directional_light.intensity = (std::max)(0.0f, intensity);
+    _is_orbiting = isorbiting;
+}
+
 const DIRECTIONAL_LIGHT& LIGHT_MANAGER::get_directional_light() const
 {
     return _directional_light;

@@ -98,4 +98,23 @@
       <Filter>리소스 파일</Filter>
     </None>
   </ItemGroup>
+  <ItemGroup>
+    <Filter Include="UI" />
+    <Filter Include="ThirdParty" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="UI\ViewerUi.cpp"><Filter>UI</Filter></ClCompile>
+    <ClCompile Include="UI\ViewerPanels.cpp"><Filter>UI</Filter></ClCompile>
+    <ClCompile Include="UI\UiTheme.cpp"><Filter>UI</Filter></ClCompile>
+    <ClCompile Include="ThirdParty\ImGui\imgui.cpp"><Filter>ThirdParty</Filter></ClCompile>
+    <ClCompile Include="ThirdParty\ImGui\imgui_draw.cpp"><Filter>ThirdParty</Filter></ClCompile>
+    <ClCompile Include="ThirdParty\ImGui\imgui_tables.cpp"><Filter>ThirdParty</Filter></ClCompile>
+    <ClCompile Include="ThirdParty\ImGui\imgui_widgets.cpp"><Filter>ThirdParty</Filter></ClCompile>
+    <ClCompile Include="ThirdParty\ImGui\backends\imgui_impl_win32.cpp"><Filter>ThirdParty</Filter></ClCompile>
+    <ClCompile Include="ThirdParty\ImGui\backends\imgui_impl_dx12.cpp"><Filter>ThirdParty</Filter></ClCompile>
+    <ClInclude Include="UI\ViewerUi.h"><Filter>UI</Filter></ClInclude>
+    <ClInclude Include="UI\ViewerPanels.h"><Filter>UI</Filter></ClInclude>
+    <ClInclude Include="UI\UiTheme.h"><Filter>UI</Filter></ClInclude>
+    <ClInclude Include="Renderer\ViewerSettings.h"><Filter>헤더 파일</Filter></ClInclude>
+  </ItemGroup>
 </Project>

@@ -1,0 +1,4 @@
+Dear ImGui v1.91.9b
+Source: https://github.com/ocornut/imgui/tree/v1.91.9b
+Core + Win32 + DirectX 12 backends, unmodified upstream sources.
+License: MIT, see LICENSE.txt.
