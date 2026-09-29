@@ -4,7 +4,8 @@
 #include "Manager/CameraManager.h"
 #include "Manager/InputManager.h"
 #include "Manager/LightManager.h"
-#include "Pass/MeshRenderPass.h"
+#include "Pass/GBufferRenderPass.h"
+#include "Pass/DeferredLightPass.h"
 #include "Pass/SkyboxRenderPass.h"
 #include "../Resource/GltfMesh.h"
 #include "../Resource/Texture.h"
@@ -31,6 +32,8 @@ private:
     bool create_command_objects();
     bool create_swap_chain();
     bool create_render_targets();
+    bool create_gbuffer_targets();
+    bool update_deferred_resources();
     bool resize_swap_chain();
     bool create_vertex_buffer();
     bool create_constant_buffer();
@@ -55,7 +58,8 @@ private:
     ComPtr<ID3D12Resource> _depth_stencil_buffer;
     ComPtr<ID3D12CommandAllocator> _command_allocator;
     ComPtr<ID3D12GraphicsCommandList> _command_list;
-    MESH_RENDER_PASS _mesh_render_pass;
+    GBUFFER_RENDER_PASS _gbuffer_render_pass;
+    DEFERRED_LIGHT_PASS _deferred_light_pass;
     SKYBOX_RENDER_PASS _skybox_render_pass;
     GLTF_MESH _gltf_mesh;
     TEXTURE_SET _material_textures;
@@ -71,6 +75,7 @@ private:
     UINT _frame_index = 0;
     bool _is_com_initialized = false;
     bool _is_fullscreen = false;
+    bool _is_render_failed = false;
     LONG_PTR _windowed_style = WS_OVERLAPPEDWINDOW;
     LONG_PTR _windowed_ex_style = WS_EX_APPWINDOW;
     RECT _windowed_rect{};

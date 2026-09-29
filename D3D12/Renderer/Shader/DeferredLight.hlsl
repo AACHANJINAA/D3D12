@@ -1,0 +1,27 @@
+#include "PbrCommon.hlsli"
+
+Texture2D<float4> gbuffer_albedo : register(t0);
+Texture2D<float4> gbuffer_normal : register(t1);
+Texture2D<float4> gbuffer_material : register(t2);
+Texture2D<float4> gbuffer_emissive : register(t3);
+Texture2D<float4> gbuffer_position : register(t4);
+
+float4 VS_Deferred(uint vertex_id : SV_VertexID) : SV_POSITION
+{
+    float2 uv = float2((vertex_id << 1) & 2, vertex_id & 2);
+    return float4(uv * float2(2.0f, -2.0f) + float2(-1.0f, 1.0f), 0.0f, 1.0f);
+}
+
+float4 PS_Deferred(float4 position : SV_POSITION) : SV_TARGET
+{
+    int3 pixel = int3(int2(position.xy), 0);
+    float4 world = gbuffer_position.Load(pixel);
+    // Empty pixels keep the skybox already drawn into the back buffer.
+    clip(world.w - 0.5f);
+    float4 albedo = gbuffer_albedo.Load(pixel);
+    float3 normal = normalize(gbuffer_normal.Load(pixel).xyz * 2.0f - 1.0f);
+    float3 material = gbuffer_material.Load(pixel).xyz;
+    float3 emissive = gbuffer_emissive.Load(pixel).rgb;
+    return shade_surface(albedo, world.xyz, normal, material.x,
+        max(material.y, 0.04f), material.z, emissive);
+}

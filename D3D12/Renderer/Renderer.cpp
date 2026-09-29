@@ -30,6 +30,7 @@ namespace
         float emissive_padding = 0.0f;
     };
 
+    static_assert(sizeof(FRAME_DATA) == 160);
     static_assert(sizeof(FRAME_DATA) <= D3D12_CONSTANT_BUFFER_DATA_PLACEMENT_ALIGNMENT);
 
     std::filesystem::path get_asset_path(const wchar_t* relative_path)
@@ -71,14 +72,18 @@ bool RENDERER::initialize(HINSTANCE instance, int show_command)
     if (!create_command_objects()) return report_initialization_failure(L"create_command_objects");
     if (!create_swap_chain()) return report_initialization_failure(L"create_swap_chain");
     if (!create_render_targets()) return report_initialization_failure(L"create_render_targets");
-    if (!_mesh_render_pass.initialize(_device.Get()))
-        return report_initialization_failure(L"mesh_render_pass.initialize");
+    if (!create_gbuffer_targets()) return report_initialization_failure(L"create_gbuffer_targets");
+    if (!_gbuffer_render_pass.initialize(_device.Get()))
+        return report_initialization_failure(L"gbuffer_render_pass.initialize");
+    if (!_deferred_light_pass.initialize(_device.Get()))
+        return report_initialization_failure(L"deferred_light_pass.initialize");
     if (!_skybox_render_pass.initialize(_device.Get()))
         return report_initialization_failure(L"skybox_render_pass.initialize");
     if (!create_vertex_buffer()) return report_initialization_failure(L"create_vertex_buffer");
     if (!create_constant_buffer()) return report_initialization_failure(L"create_constant_buffer");
     if (!create_fence()) return report_initialization_failure(L"create_fence");
     if (!create_texture()) return report_initialization_failure(L"create_texture");
+    if (!update_deferred_resources()) return report_initialization_failure(L"deferred_resources");
     return true;
 }
 
@@ -96,7 +101,13 @@ int RENDERER::run()
             TranslateMessage(&message);
             DispatchMessageW(&message);
         }
+        if (IsIconic(_window))
+        {
+            WaitMessage();
+            continue;
+        }
         render_frame();
+        if (_is_render_failed) return EXIT_FAILURE;
     }
 }
 
@@ -136,10 +147,16 @@ bool RENDERER::create_window(int show_command)
 bool RENDERER::resize_swap_chain()
 {
     wait_for_gpu();
+    // Discard recorded references to the old render targets after GPU completion.
+    if (FAILED(_command_allocator->Reset()) ||
+        FAILED(_command_list->Reset(_command_allocator.Get(), nullptr)) ||
+        FAILED(_command_list->Close()))
+        return false;
     for (auto& render_target : _render_targets)
     {
         render_target.Reset();
     }
+    _gbuffer_render_pass.release_targets();
     _depth_stencil_buffer.Reset();
     _render_target_heap.Reset();
     _depth_stencil_heap.Reset();
@@ -154,7 +171,7 @@ bool RENDERER::resize_swap_chain()
         return false;
     }
     _frame_index = _swap_chain->GetCurrentBackBufferIndex();
-    return create_render_targets();
+    return create_render_targets() && create_gbuffer_targets() && update_deferred_resources();
 }
 
 void RENDERER::toggle_fullscreen()
@@ -193,7 +210,11 @@ void RENDERER::toggle_fullscreen()
             SWP_FRAMECHANGED | SWP_SHOWWINDOW);
         _is_fullscreen = false;
     }
-    resize_swap_chain();
+    if (!resize_swap_chain())
+    {
+        _is_render_failed = true;
+        report_initialization_failure(L"resize_swap_chain");
+    }
 }
 
 bool RENDERER::initialize_device()
@@ -329,6 +350,20 @@ bool RENDERER::create_render_targets()
     return true;
 }
 
+bool RENDERER::create_gbuffer_targets()
+{
+    const auto description = _render_targets[0]->GetDesc();
+    return _gbuffer_render_pass.resize(_device.Get(),
+        static_cast<UINT>(description.Width), description.Height);
+}
+
+bool RENDERER::update_deferred_resources()
+{
+    return _deferred_light_pass.set_resources(_device.Get(), _gbuffer_render_pass,
+        _skybox_render_pass.get_cubemap(), _material_textures.get_brdf_lut(),
+        _material_textures.get_specular_cubemap());
+}
+
 bool RENDERER::create_vertex_buffer()
 {
     if (!_gltf_mesh.load(get_asset_path(L"Mesh/DamagedHelmet/DamagedHelmet.gltf")))
@@ -422,7 +457,7 @@ bool RENDERER::create_fence()
 bool RENDERER::create_texture()
 {
     if (FAILED(_command_allocator->Reset()) ||
-        FAILED(_command_list->Reset(_command_allocator.Get(), _mesh_render_pass.get_pipeline())))
+        FAILED(_command_list->Reset(_command_allocator.Get(), nullptr)))
     {
         return false;
     }
@@ -488,12 +523,14 @@ void RENDERER::render_frame()
     last_frame_time = current_time;
     INPUT_MANAGER::get_instance().update();
     static bool was_fullscreen_key_down = false;
-    const bool is_fullscreen_key_down = INPUT_MANAGER::get_instance().is_key_down('1');
+    const bool is_fullscreen_key_down = GetForegroundWindow() == _window &&
+        INPUT_MANAGER::get_instance().is_key_down('1');
     if (is_fullscreen_key_down && !was_fullscreen_key_down)
     {
         toggle_fullscreen();
     }
     was_fullscreen_key_down = is_fullscreen_key_down;
+    if (_is_render_failed) return;
     static bool was_light_orbit_key_down = false;
     const bool is_light_orbit_key_down = INPUT_MANAGER::get_instance().is_key_down('L');
     if (is_light_orbit_key_down && !was_light_orbit_key_down)
@@ -507,7 +544,19 @@ void RENDERER::render_frame()
     GetClientRect(_window, &client_rect);
     const float client_width = static_cast<float>(client_rect.right - client_rect.left);
     const float client_height = static_cast<float>(client_rect.bottom - client_rect.top);
-    const float aspect_ratio = client_height > 0.0f ? client_width / client_height : 1.0f;
+    if (client_width <= 0.0f || client_height <= 0.0f) return;
+    const auto buffer_description = _render_targets[0]->GetDesc();
+    if (buffer_description.Width != static_cast<UINT64>(client_width) ||
+        buffer_description.Height != static_cast<UINT>(client_height))
+    {
+        if (!resize_swap_chain())
+        {
+            _is_render_failed = true;
+            report_initialization_failure(L"resize_swap_chain");
+            return;
+        }
+    }
+    const float aspect_ratio = client_width / client_height;
     const MATH::MATRIX4X4 transform =
         CAMERA_MANAGER::get_instance().get_view_projection(aspect_ratio);
     const DIRECTIONAL_LIGHT& directional_light =
@@ -530,8 +579,13 @@ void RENDERER::render_frame()
     frame_data.ambient_strength = 0.03f;
     std::memcpy(_constant_data, &frame_data, sizeof(frame_data));
 
-    _command_allocator->Reset();
-    _command_list->Reset(_command_allocator.Get(), _mesh_render_pass.get_pipeline());
+    if (FAILED(_command_allocator->Reset()) ||
+        FAILED(_command_list->Reset(_command_allocator.Get(), nullptr)))
+    {
+        _is_render_failed = true;
+        report_initialization_failure(L"render_frame.reset");
+        return;
+    }
     
     const CD3DX12_RESOURCE_BARRIER to_render_target = CD3DX12_RESOURCE_BARRIER::transition(
         _render_targets[_frame_index].Get(),
@@ -542,45 +596,42 @@ void RENDERER::render_frame()
     auto render_target_handle = _render_target_heap->GetCPUDescriptorHandleForHeapStart();
     render_target_handle.ptr += static_cast<SIZE_T>(_frame_index) * _render_target_descriptor_size;
     const auto depth_stencil_handle = _depth_stencil_heap->GetCPUDescriptorHandleForHeapStart();
-    _command_list->OMSetRenderTargets(1, &render_target_handle, FALSE, &depth_stencil_handle);
     constexpr float clear_color[] = { 0.05f, 0.05f, 0.08f, 1.0f };
     _command_list->ClearRenderTargetView(render_target_handle, clear_color, 0, nullptr);
-    _command_list->ClearDepthStencilView(
-        depth_stencil_handle,
-        D3D12_CLEAR_FLAG_DEPTH,
-        1.0f,
-        0,
-        0,
-        nullptr);
     D3D12_VIEWPORT viewport{ 0.0f, 0.0f, client_width, client_height, 0.0f, 1.0f };
     D3D12_RECT scissor_rect{
         0, 0, static_cast<LONG>(client_width), static_cast<LONG>(client_height) };
     _command_list->RSSetViewports(1, &viewport);
     _command_list->RSSetScissorRects(1, &scissor_rect);
+
+    _gbuffer_render_pass.render(_command_list.Get(), depth_stencil_handle,
+        _constant_buffer->GetGPUVirtualAddress(), _material_textures.get_srv_heap(),
+        _vertex_buffer_view, _index_buffer_view,
+        static_cast<UINT>(_gltf_mesh.get_indices().size()));
+
+    // Full-screen passes have depth disabled; keep geometry depth for future overlays.
+    _command_list->OMSetRenderTargets(1, &render_target_handle, FALSE, nullptr);
     _skybox_render_pass.render(_command_list.Get());
-    _command_list->SetPipelineState(_mesh_render_pass.get_pipeline());
-    _command_list->SetGraphicsRootSignature(_mesh_render_pass.get_root_signature());
-    _command_list->SetGraphicsRootConstantBufferView(0, _constant_buffer->GetGPUVirtualAddress());
-    ID3D12DescriptorHeap* descriptor_heaps[] = { _material_textures.get_srv_heap() };
-    _command_list->SetDescriptorHeaps(1, descriptor_heaps);
-    _command_list->SetGraphicsRootDescriptorTable(1, _material_textures.get_gpu_handle());
-    _command_list->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-    _command_list->IASetVertexBuffers(0, 1, &_vertex_buffer_view);
-    _command_list->IASetIndexBuffer(&_index_buffer_view);
-    _command_list->DrawIndexedInstanced(
-        static_cast<UINT>(_gltf_mesh.get_indices().size()), 1, 0, 0, 0);
-    _command_list->SetPipelineState(_mesh_render_pass.get_wireframe_pipeline());
-    _command_list->DrawIndexedInstanced(
-        static_cast<UINT>(_gltf_mesh.get_indices().size()), 1, 0, 0, 0);
+    _deferred_light_pass.render(_command_list.Get(), _constant_buffer->GetGPUVirtualAddress());
     const CD3DX12_RESOURCE_BARRIER to_present = CD3DX12_RESOURCE_BARRIER::transition(
         _render_targets[_frame_index].Get(),
         D3D12_RESOURCE_STATE_RENDER_TARGET,
         D3D12_RESOURCE_STATE_PRESENT);
     _command_list->ResourceBarrier(1, &to_present);
-    _command_list->Close();
+    if (FAILED(_command_list->Close()))
+    {
+        _is_render_failed = true;
+        report_initialization_failure(L"render_frame.close");
+        return;
+    }
     ID3D12CommandList* command_lists[] = { _command_list.Get() };
     _command_queue->ExecuteCommandLists(1, command_lists);
-    _swap_chain->Present(1, 0);
+    if (FAILED(_swap_chain->Present(1, 0)))
+    {
+        _is_render_failed = true;
+        report_initialization_failure(L"render_frame.present");
+        return;
+    }
     move_to_next_frame();
 }
 
@@ -626,6 +677,7 @@ void RENDERER::shutdown()
     _index_buffer.Reset();
     _depth_stencil_buffer.Reset();
     _depth_stencil_heap.Reset();
+    _gbuffer_render_pass.release_targets();
     _command_list.Reset();
     _command_allocator.Reset();
     for (auto& render_target : _render_targets) render_target.Reset();

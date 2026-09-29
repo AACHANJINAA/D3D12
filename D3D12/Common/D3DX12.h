@@ -67,6 +67,23 @@ struct CD3DX12_HEAP_PROPERTIES : public D3D12_HEAP_PROPERTIES
 
 struct CD3DX12_RESOURCE_DESC : public D3D12_RESOURCE_DESC
 {
+    static CD3DX12_RESOURCE_DESC texture_2d(
+        DXGI_FORMAT format, UINT64 width, UINT height,
+        D3D12_RESOURCE_FLAGS flags = D3D12_RESOURCE_FLAG_NONE)
+    {
+        CD3DX12_RESOURCE_DESC description{};
+        description.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+        description.Width = width;
+        description.Height = height;
+        description.DepthOrArraySize = 1;
+        description.MipLevels = 1;
+        description.Format = format;
+        description.SampleDesc.Count = 1;
+        description.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+        description.Flags = flags;
+        return description;
+    }
+
     static CD3DX12_RESOURCE_DESC buffer(UINT64 size)
     {
         CD3DX12_RESOURCE_DESC description{};
