@@ -1,0 +1,19 @@
+Source: https://github.com/KhronosGroup/glTF-Sample-Models
+Commit: d7a3cc8e51d7c573771ae77a57f16b0662a905c6
+Downloaded: 2026-10-01
+Variant: 2.0/<model>/glTF (external JSON, buffers and images)
+
+BoxTextured: base-color texture, UVs, basic placement.
+Duck: node transforms and non-unit source scale.
+Avocado: normal and metallic-roughness texture mapping.
+BoomBox: metallic surfaces, emissive map and IBL.
+MetalRoughSpheresNoTextures: multiple meshes/materials and metallic-roughness factors.
+
+Original per-model README and available license files are retained in each
+model folder. Refer to those files for the model-specific authors and licenses.
+These assets do not share a single blanket license.
+
+Import: OPEN MODEL or ADD MODEL, select <model>/glTF/<model>.gltf,
+enter Position / Rotation (degrees) / Scale, then press IMPORT.
+ADD uses the entered absolute position, with no automatic spacing.
+The engine starts with an empty scene; these samples are not auto-loaded.

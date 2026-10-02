@@ -1,0 +1,55 @@
+{
+  "source_repository": "C:/Users/ckswl/Desktop/GITHUB/PIP",
+  "commit": "0c8a7856152d3a9449ecf03e7e28b8acf4578a50",
+  "captured": "2026-10-02",
+  "files": [
+    {
+      "file": "Forward/Renderer/Shader/Pip/Gltf_Shader.hlsl",
+      "sha256": "E02E31E3614CA2CD5795596018A8F478805ABF3E76D49F338476A04B348A1DED"
+    },
+    {
+      "file": "Forward/Renderer/Shader/Pip/IBL.hlsl",
+      "sha256": "0636DAD31D2A15B98D17E6F16FCFE3A6DDB8E8154609EA963C95F77FBCB6B10F"
+    },
+    {
+      "file": "Forward/Renderer/Shader/Pip/Light.hlsl",
+      "sha256": "ABDBF54CBC5DE70F25FFD22167B1B0E9ED0D5D416007CF4B6B03AB5C1468B6C3"
+    },
+    {
+      "file": "Forward/Renderer/Shader/Pip/Shadow_Sample.hlsl",
+      "sha256": "4FDC1F52265B8A80BAA8D6DE33D21C628B267386C794716BC8CA222BF3F1EA78"
+    },
+    {
+      "file": "Forward/PipReference/GameFramework.cpp",
+      "sha256": "D91F9329C27B7944E353AF894EAD105C9809FA0BE4A4704E4FCAA4D0FBB05767"
+    },
+    {
+      "file": "Forward/PipReference/GltfShader.cpp",
+      "sha256": "7368F1CEEAD7076F86B34B77F145528337816652C95F540114D3C23B6BC80F34"
+    },
+    {
+      "file": "Forward/PipReference/LightManager.cpp",
+      "sha256": "1AFB2DFFE97565CF52EBBEC0F5C462C10DE774B400F5E26AB956D78BC2DD3C15"
+    },
+    {
+      "file": "Forward/PipReference/LightManager.h",
+      "sha256": "5ABC5A655BB9A20E891B42DBA879B4615FE5EE2CCB9234BE961FD7958D230464"
+    },
+    {
+      "file": "Forward/PipReference/ReadGLTFMesh.cpp",
+      "sha256": "0514562479DF576EC1433E7D9887D3A09DDDC7CB38802FB33E1CE0E5875BDD6C"
+    },
+    {
+      "file": "Forward/PipReference/RenderComponent.cpp",
+      "sha256": "3D36DFD62A7D711222BD4F0D3EC6448ACD8B348E9A405795D5FA666E8D51CC90"
+    },
+    {
+      "file": "Forward/PipReference/Renderer.cpp",
+      "sha256": "A35A2A88E68601126E2CCD96A64F1BCDDEC2E56AE3B59E5070E64124ECCA6BA5"
+    },
+    {
+      "file": "Forward/PipReference/RootSignature.cpp",
+      "sha256": "1129B621A7FF72E0ECE8F1EFEFB9A750EC353B62093314572E27270E1D171A96"
+    }
+  ]
+}

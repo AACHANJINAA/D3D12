@@ -1,0 +1,18 @@
+{
+  "width": 1920,
+  "height": 1080,
+  "vsync": 0,
+  "camera_position": [0, 1.5, -9],
+  "camera_target": [0, 0, 0],
+  "light_direction": [-0.3, -0.8, 0.4],
+  "light_color": [1, 1, 1],
+  "light_intensity": 0.8,
+  "objects": [
+    {"model": "../Asset/Mesh/BoxTextured/glTF/BoxTextured.gltf", "position": [-2, -1, 0]},
+    {"model": "../Asset/Mesh/BoxTextured/glTF/BoxTextured.gltf", "position": [0, -1, 0]},
+    {"model": "../Asset/Mesh/BoxTextured/glTF/BoxTextured.gltf", "position": [2, -1, 0]},
+    {"model": "../Asset/Mesh/BoxTextured/glTF/BoxTextured.gltf", "position": [-2, 1, 0]},
+    {"model": "../Asset/Mesh/BoxTextured/glTF/BoxTextured.gltf", "position": [0, 1, 0]},
+    {"model": "../Asset/Mesh/BoxTextured/glTF/BoxTextured.gltf", "position": [2, 1, 0]}
+  ]
+}

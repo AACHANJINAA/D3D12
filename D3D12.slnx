@@ -3,5 +3,6 @@
     <Platform Name="x64" />
     <Platform Name="x86" />
   </Configurations>
-  <Project Path="D3D12/D3D12.vcxproj" />
+  <Project Path="Deffered/Deffered.vcxproj" />
+  <Project Path="Forward/Forward.vcxproj" />
 </Solution>
