@@ -5,6 +5,7 @@
 #include "ModelImportDialog.h"
 
 struct ImGuiContext;
+struct BENCHMARK_UI_STATE;
 
 class VIEWER_UI
 {
@@ -12,7 +13,8 @@ public:
     bool initialize(HWND window, ID3D12Device* device, ID3D12CommandQueue* queue,
         int frame_count);
     void set_textures(ID3D12Device* device, const std::array<ID3D12Resource*, 5>& textures);
-    void begin_frame(VIEWER_SETTINGS& settings, SCENE& scene, const VIEWER_STATS& stats);
+    void begin_frame(VIEWER_SETTINGS& settings, SCENE& scene, const VIEWER_STATS& stats,
+        bool ispanels_visible = true, BENCHMARK_UI_STATE* comparison = nullptr);
     void render(ID3D12GraphicsCommandList* list);
     void shutdown();
     bool process_message(HWND window, UINT message, WPARAM wparam, LPARAM lparam);

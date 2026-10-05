@@ -1,0 +1,1 @@
+{"renderer":"Forward","status":"cpu_submission_validated_not_gpu_verified","instancing":true,"object_culling":false,"backface_culling":false,"objects":10000,"primitive_instances":10000,"mesh_draw_calls":1,"submitted_triangles":154520000}

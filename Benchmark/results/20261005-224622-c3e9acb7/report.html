@@ -1,0 +1,53 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<style>body{font:14px system-ui;margin:24px;color:#222;background:#fff}table{border-collapse:collapse;margin-bottom:24px}td,th{padding:6px 10px;border:1px solid #ddd;text-align:right}th{background:#eee}p{max-width:1000px}h1{font-size:24px}</style>
+</head><body>
+<h1>Smoke test only - not performance evidence</h1><p>Times in milliseconds. Positive saved time means Deffered is faster. Forward mesh time includes lighting. Shared lighting equations; G-buffer quantization differs. No image-equivalence certification. UI GPU cost is included. Compare Release runs on an idle GPU.</p><h2>GPU time by light count</h2><h3>4, False</h3><svg width="640" height="240" viewBox="0 0 640 240" role="img" aria-label="GPU milliseconds by point light count"><path d="M60 10V205H620" fill="none" stroke="#555"/><text x="5" y="20">ms</text><text x="480" y="235">Point lights</text><circle cx="60" cy="107.69" r="4" fill="#1679ae"><title>Forward: 0 lights, 0.019424 ms</title></circle><circle cx="610" cy="95.67" r="4" fill="#1679ae"><title>Forward: 4 lights, 0.021824 ms</title></circle><polyline points="60,107.69 610,95.67" fill="none" stroke="#1679ae" stroke-width="2"/><circle cx="60" cy="26.25" r="4" fill="#cf493e"><title>Deffered: 0 lights, 0.03568 ms</title></circle><circle cx="610" cy="20" r="4" fill="#cf493e"><title>Deffered: 4 lights, 0.036928 ms</title></circle><polyline points="60,26.25 610,20" fill="none" stroke="#cf493e" stroke-width="2"/></svg><p>Blue: Forward. Red: Deffered. Repetition medians; ranges in the table below.</p><h3>4, True</h3><svg width="640" height="240" viewBox="0 0 640 240" role="img" aria-label="GPU milliseconds by point light count"><path d="M60 10V205H620" fill="none" stroke="#555"/><text x="5" y="20">ms</text><text x="480" y="235">Point lights</text><circle cx="60" cy="108.81" r="4" fill="#1679ae"><title>Forward: 0 lights, 0.0192 ms</title></circle><circle cx="610" cy="96.31" r="4" fill="#1679ae"><title>Forward: 4 lights, 0.021696 ms</title></circle><polyline points="60,108.81 610,96.31" fill="none" stroke="#1679ae" stroke-width="2"/><circle cx="60" cy="26.41" r="4" fill="#cf493e"><title>Deffered: 0 lights, 0.035648 ms</title></circle><circle cx="610" cy="20" r="4" fill="#cf493e"><title>Deffered: 4 lights, 0.036928 ms</title></circle><polyline points="60,26.41 610,20" fill="none" stroke="#cf493e" stroke-width="2"/></svg><p>Blue: Forward. Red: Deffered. Repetition medians; ranges in the table below.</p><h2>Repeat variability</h2><table>
+<colgroup><col/><col/><col/><col/><col/><col/><col/><col/></colgroup>
+<tr><th>renderer</th><th>objects</th><th>lights</th><th>instancing</th><th>runs</th><th>gpu_median_of_runs_ms</th><th>gpu_min_run_ms</th><th>gpu_max_run_ms</th></tr>
+<tr><td>Deffered</td><td>4</td><td>0</td><td>False</td><td>1</td><td>0.03568</td><td>0.03568</td><td>0.03568</td></tr>
+<tr><td>Deffered</td><td>4</td><td>0</td><td>True</td><td>1</td><td>0.035648</td><td>0.035648</td><td>0.035648</td></tr>
+<tr><td>Deffered</td><td>4</td><td>4</td><td>False</td><td>1</td><td>0.036928</td><td>0.036928</td><td>0.036928</td></tr>
+<tr><td>Deffered</td><td>4</td><td>4</td><td>True</td><td>1</td><td>0.036928</td><td>0.036928</td><td>0.036928</td></tr>
+<tr><td>Forward</td><td>4</td><td>0</td><td>False</td><td>1</td><td>0.019424</td><td>0.019424</td><td>0.019424</td></tr>
+<tr><td>Forward</td><td>4</td><td>0</td><td>True</td><td>1</td><td>0.0192</td><td>0.0192</td><td>0.0192</td></tr>
+<tr><td>Forward</td><td>4</td><td>4</td><td>False</td><td>1</td><td>0.021824</td><td>0.021824</td><td>0.021824</td></tr>
+<tr><td>Forward</td><td>4</td><td>4</td><td>True</td><td>1</td><td>0.021696</td><td>0.021696</td><td>0.021696</td></tr>
+</table>
+<h2>Paired runs</h2><table>
+<colgroup><col/><col/><col/><col/><col/><col/><col/><col/><col/><col/><col/></colgroup>
+<tr><th>run_id</th><th>objects</th><th>lights</th><th>instancing</th><th>forward_gpu_ms</th><th>deferred_gpu_ms</th><th>gpu_saved_ms</th><th>forward_over_deferred</th><th>forward_cpu_prepare_record_ms</th><th>deferred_cpu_prepare_record_ms</th><th>mesh_draw_calls</th></tr>
+<tr><td>n4-l0-Batched-Dispersed-r1</td><td>4</td><td>0</td><td>True</td><td>0.0192</td><td>0.035648</td><td>-0.016448</td><td>0.5385996409335727</td><td>0.029900111258029938</td><td>0.03329990431666374</td><td>1</td></tr>
+<tr><td>n4-l0-Unbatched-Dispersed-r1</td><td>4</td><td>0</td><td>False</td><td>0.019424</td><td>0.03568</td><td>-0.016256000000000003</td><td>0.5443946188340807</td><td>0.03310013562440872</td><td>0.03329990431666374</td><td>4</td></tr>
+<tr><td>n4-l4-Batched-Dispersed-r1</td><td>4</td><td>4</td><td>True</td><td>0.021696</td><td>0.036928</td><td>-0.015232000000000002</td><td>0.5875216637781628</td><td>0.030999770388007164</td><td>0.03350013867020607</td><td>1</td></tr>
+<tr><td>n4-l4-Unbatched-Dispersed-r1</td><td>4</td><td>4</td><td>False</td><td>0.021824</td><td>0.036928</td><td>-0.015104000000000003</td><td>0.5909878682842287</td><td>0.033600255846977234</td><td>0.032499898225069046</td><td>4</td></tr>
+</table>
+<h2>All successful runs</h2><table>
+<colgroup><col/><col/><col/><col/><col/><col/><col/><col/><col/><col/><col/><col/><col/><col/><col/><col/><col/><col/><col/><col/><col/><col/></colgroup>
+<tr><th>run_id</th><th>renderer</th><th>objects</th><th>lights</th><th>instancing</th><th>frames</th><th>gpu_median_ms</th><th>gpu_p95_ms</th><th>gpu_p99_ms</th><th>mesh_gpu_ms</th><th>lighting_gpu_ms</th><th>prepare_cpu_ms</th><th>record_cpu_ms</th><th>submit_cpu_ms</th><th>present_cpu_ms</th><th>sync_cpu_ms</th><th>frame_interval_ms</th><th>mesh_draw_calls</th><th>primitive_instances</th><th>gpu</th><th>driver</th><th>build</th></tr>
+<tr><td>n4-l0-Batched-Dispersed-r1</td><td>Forward</td><td>4</td><td>0</td><td>True</td><td>3588</td><td>0.0192</td><td>0.021696</td><td>0.022016</td><td>0.003104</td><td></td><td>0.007200054824352264</td><td>0.022700056433677673</td><td>0.023300061002373695</td><td>0.05879998207092285</td><td>0.003200024366378784</td><td>0.12939982116222382</td><td>1</td><td>4</td><td>NVIDIA GeForce RTX 5060 Ti</td><td>9007199255733218</td><td>Release</td></tr>
+<tr><td>n4-l0-Batched-Dispersed-r1</td><td>Deffered</td><td>4</td><td>0</td><td>True</td><td>3400</td><td>0.035648</td><td>0.037664</td><td>0.037792</td><td>0.011232</td><td>0.008416</td><td>0.00509992241859436</td><td>0.02819998189806938</td><td>0.02359994687139988</td><td>0.059300102293491364</td><td>0.003100140020251274</td><td>0.1330999657511711</td><td>1</td><td>4</td><td>NVIDIA GeForce RTX 5060 Ti</td><td>9007199255733218</td><td>Release</td></tr>
+<tr><td>n4-l0-Unbatched-Dispersed-r1</td><td>Forward</td><td>4</td><td>0</td><td>False</td><td>3459</td><td>0.019424</td><td>0.021952</td><td>0.022336</td><td>0.003264</td><td></td><td>0.009800074622035027</td><td>0.023300061002373695</td><td>0.023499829694628716</td><td>0.058900099247694016</td><td>0.003200024366378784</td><td>0.13569998554885387</td><td>4</td><td>4</td><td>NVIDIA GeForce RTX 5060 Ti</td><td>9007199255733218</td><td>Release</td></tr>
+<tr><td>n4-l0-Unbatched-Dispersed-r1</td><td>Deffered</td><td>4</td><td>0</td><td>False</td><td>3153</td><td>0.03568</td><td>0.037696</td><td>0.03792</td><td>0.0112</td><td>0.008448</td><td>0.004200031980872154</td><td>0.029099872335791588</td><td>0.0241999514400959</td><td>0.060999998822808266</td><td>0.003200024366378784</td><td>0.13649999164044857</td><td>4</td><td>4</td><td>NVIDIA GeForce RTX 5060 Ti</td><td>9007199255733218</td><td>Release</td></tr>
+<tr><td>n4-l4-Batched-Dispersed-r1</td><td>Forward</td><td>4</td><td>4</td><td>True</td><td>3181</td><td>0.021696</td><td>0.024192</td><td>0.02448</td><td>0.005536</td><td></td><td>0.0075998250395059586</td><td>0.023399945348501205</td><td>0.02440018579363823</td><td>0.06189988926053047</td><td>0.0033997930586338043</td><td>0.1392001286149025</td><td>1</td><td>4</td><td>NVIDIA GeForce RTX 5060 Ti</td><td>9007199255733218</td><td>Release</td></tr>
+<tr><td>n4-l4-Batched-Dispersed-r1</td><td>Deffered</td><td>4</td><td>4</td><td>True</td><td>3380</td><td>0.036928</td><td>0.038944</td><td>0.039136</td><td>0.011232</td><td>0.009664</td><td>0.00509992241859436</td><td>0.02840021625161171</td><td>0.023700064048171043</td><td>0.05979998968541622</td><td>0.003200024366378784</td><td>0.1346999779343605</td><td>1</td><td>4</td><td>NVIDIA GeForce RTX 5060 Ti</td><td>9007199255733218</td><td>Release</td></tr>
+<tr><td>n4-l4-Unbatched-Dispersed-r1</td><td>Forward</td><td>4</td><td>4</td><td>False</td><td>3416</td><td>0.021824</td><td>0.02432</td><td>0.024576</td><td>0.005632</td><td></td><td>0.0100000761449337</td><td>0.023600179702043533</td><td>0.023799948394298553</td><td>0.05970010533928871</td><td>0.003200024366378784</td><td>0.13610022142529488</td><td>4</td><td>4</td><td>NVIDIA GeForce RTX 5060 Ti</td><td>9007199255733218</td><td>Release</td></tr>
+<tr><td>n4-l4-Unbatched-Dispersed-r1</td><td>Deffered</td><td>4</td><td>4</td><td>False</td><td>3449</td><td>0.036928</td><td>0.039008</td><td>0.039264</td><td>0.011232</td><td>0.009664</td><td>0.00400003045797348</td><td>0.028499867767095566</td><td>0.02359994687139988</td><td>0.05950010381639004</td><td>0.003200024366378784</td><td>0.1325998455286026</td><td>4</td><td>4</td><td>NVIDIA GeForce RTX 5060 Ti</td><td>9007199255733218</td><td>Release</td></tr>
+</table>
+<h2>Execution status</h2><table>
+<colgroup><col/><col/><col/><col/><col/></colgroup>
+<tr><th>run_id</th><th>renderer</th><th>exit_code</th><th>status</th><th>error</th></tr>
+<tr><td>n4-l0-Batched-Dispersed-r1</td><td>Forward</td><td>0</td><td>complete</td><td></td></tr>
+<tr><td>n4-l0-Batched-Dispersed-r1</td><td>Deffered</td><td>0</td><td>complete</td><td></td></tr>
+<tr><td>n4-l0-Unbatched-Dispersed-r1</td><td>Forward</td><td>0</td><td>complete</td><td></td></tr>
+<tr><td>n4-l0-Unbatched-Dispersed-r1</td><td>Deffered</td><td>0</td><td>complete</td><td></td></tr>
+<tr><td>n4-l4-Batched-Dispersed-r1</td><td>Forward</td><td>0</td><td>complete</td><td></td></tr>
+<tr><td>n4-l4-Batched-Dispersed-r1</td><td>Deffered</td><td>0</td><td>complete</td><td></td></tr>
+<tr><td>n4-l4-Unbatched-Dispersed-r1</td><td>Forward</td><td>0</td><td>complete</td><td></td></tr>
+<tr><td>n4-l4-Unbatched-Dispersed-r1</td><td>Deffered</td><td>0</td><td>complete</td><td></td></tr>
+</table>
+
+<table>
+</table>
+</body></html>

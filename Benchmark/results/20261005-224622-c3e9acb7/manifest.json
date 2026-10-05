@@ -1,0 +1,223 @@
+{
+  "configuration": "Release",
+  "smoke": true,
+  "started": "2026-10-05T13:46:22.7286557Z",
+  "git_commit": "b7729bf4557af27e986b58f869bcfcfd4dc34b52",
+  "git_status": [
+    " M Base_MD/docs/RENDERER_BENCHMARK_PLAN.md",
+    " M Benchmark/BenchmarkScene.h",
+    " M Deffered/Deffered.vcxproj",
+    " M Deffered/Deffered.vcxproj.filters",
+    " M Deffered/Renderer/Pass/DeferredLightPass.cpp",
+    " M Deffered/Renderer/Pass/DeferredLightPass.h",
+    " M Deffered/Renderer/Pass/GBufferRenderPass.cpp",
+    " M Deffered/Renderer/Pass/GBufferRenderPass.h",
+    " M Deffered/Renderer/Renderer.cpp",
+    " M Deffered/Renderer/Renderer.h",
+    " M Deffered/Renderer/SceneRenderData.cpp",
+    " M Deffered/Renderer/SceneRenderData.h",
+    " M Deffered/Renderer/Shader/DeferredLight.hlsl",
+    " M Deffered/Renderer/Shader/GBuffer.hlsl",
+    " M Deffered/Renderer/Shader/Mesh.hlsl",
+    " M Deffered/Resource/MeshResource.cpp",
+    " M Deffered/Resource/MeshResource.h",
+    " M Deffered/Resource/ModelResource.cpp",
+    " M Deffered/Resource/ModelResource.h",
+    " M Deffered/Scene/Scene.cpp",
+    " M Deffered/Scene/Scene.h",
+    " M Deffered/UI/ViewerUi.cpp",
+    " M Deffered/UI/ViewerUi.h",
+    " M Forward/Forward.vcxproj",
+    " M Forward/Renderer/Pass/PipForwardPass.cpp",
+    " M Forward/Renderer/Pass/PipForwardPass.h",
+    " M Forward/Renderer/Renderer.cpp",
+    " M Forward/Renderer/Renderer.h",
+    " M Forward/Renderer/Shader/Shader.cpp",
+    " M Forward/Scene/Scene.cpp",
+    " M Forward/Scene/Scene.h",
+    " M Forward/UI/ViewerUi.cpp",
+    " M Forward/UI/ViewerUi.h",
+    "?? Benchmark/BenchmarkLights.h",
+    "?? Benchmark/ComparisonUi.h",
+    "?? Benchmark/FrameProfiler.h",
+    "?? Benchmark/RunComparison.ps1",
+    "?? Benchmark/Shader/",
+    "?? Benchmark/SummarizeComparison.ps1",
+    "?? Benchmark/batching-10000.json",
+    "?? Benchmark/batching-50000.json",
+    "?? Benchmark/comparison.json",
+    "?? Benchmark/results/",
+    "?? Deffered/Renderer/Shader/InstancedMesh.hlsl",
+    "?? Forward/Renderer/Shader/Pip/MatchedForward.hlsl",
+    "?? Tests/BatchingTests.cpp",
+    "?? Tests/BatchingTests.vcxproj"
+  ],
+  "hashes": [
+    {
+      "path": "C:\\Users\\ckswl\\Desktop\\GITHUB\\D3D12\\Forward\\bin\\x64\\Release\\Forward.exe",
+      "sha256": "013614ACA9081A19E26B9C7E01C68DF66844FDD7B284C15B22DF5BBE196A0299"
+    },
+    {
+      "path": "C:\\Users\\ckswl\\Desktop\\GITHUB\\D3D12\\Forward\\bin\\x64\\Release\\Renderer\\Shader\\MatchedForward.hlsl",
+      "sha256": "80E6D8F0C9BF27DDB5EBAFF92674CCFB3B0228F66F2A1861B1841C843D01A018"
+    },
+    {
+      "path": "C:\\Users\\ckswl\\Desktop\\GITHUB\\D3D12\\Forward\\bin\\x64\\Release\\Renderer\\Shader\\Skybox.hlsl",
+      "sha256": "088295AF199F2C8244B7A7BA92C162EAEA9D24CE2CF67AE044E8AA27B80F3179"
+    },
+    {
+      "path": "C:\\Users\\ckswl\\Desktop\\GITHUB\\D3D12\\Forward\\bin\\x64\\Release\\Renderer\\Shader\\Benchmark\\MatchedLighting.hlsli",
+      "sha256": "131CE9CFE1A3D089AEFF40E02ECD28F8D0842D235E1D7885A3ACC5B099351B8A"
+    },
+    {
+      "path": "C:\\Users\\ckswl\\Desktop\\GITHUB\\D3D12\\Forward\\bin\\x64\\Release\\Renderer\\Shader\\Pip\\Gltf_Shader.hlsl",
+      "sha256": "E02E31E3614CA2CD5795596018A8F478805ABF3E76D49F338476A04B348A1DED"
+    },
+    {
+      "path": "C:\\Users\\ckswl\\Desktop\\GITHUB\\D3D12\\Forward\\bin\\x64\\Release\\Renderer\\Shader\\Pip\\IBL.hlsl",
+      "sha256": "0636DAD31D2A15B98D17E6F16FCFE3A6DDB8E8154609EA963C95F77FBCB6B10F"
+    },
+    {
+      "path": "C:\\Users\\ckswl\\Desktop\\GITHUB\\D3D12\\Forward\\bin\\x64\\Release\\Renderer\\Shader\\Pip\\Light.hlsl",
+      "sha256": "ABDBF54CBC5DE70F25FFD22167B1B0E9ED0D5D416007CF4B6B03AB5C1468B6C3"
+    },
+    {
+      "path": "C:\\Users\\ckswl\\Desktop\\GITHUB\\D3D12\\Forward\\bin\\x64\\Release\\Renderer\\Shader\\Pip\\MatchedForward.hlsl",
+      "sha256": "B5FA8A2B24C703E0979A5136056C01F2E4CC36B66124BCE21639D5C726597037"
+    },
+    {
+      "path": "C:\\Users\\ckswl\\Desktop\\GITHUB\\D3D12\\Forward\\bin\\x64\\Release\\Renderer\\Shader\\Pip\\Shadow_Sample.hlsl",
+      "sha256": "4FDC1F52265B8A80BAA8D6DE33D21C628B267386C794716BC8CA222BF3F1EA78"
+    },
+    {
+      "path": "C:\\Users\\ckswl\\Desktop\\GITHUB\\D3D12\\Forward\\bin\\x64\\Release\\Asset\\Skybox\\BRDF.dds",
+      "sha256": "0D5A793FC19F04CBD80982D8E387C5C920B9F4D50831A11F07D10C2AC9E2BB78"
+    },
+    {
+      "path": "C:\\Users\\ckswl\\Desktop\\GITHUB\\D3D12\\Forward\\bin\\x64\\Release\\Asset\\Skybox\\cloudy\\cloudy_skybox.dds",
+      "sha256": "027F4DC491CE0A599004C6566E89A07C1C09D339444CFB92523211CA84778034"
+    },
+    {
+      "path": "C:\\Users\\ckswl\\Desktop\\GITHUB\\D3D12\\Forward\\bin\\x64\\Release\\Asset\\Skybox\\cloudy\\cloudy_specular.dds",
+      "sha256": "A519D1BE2B64E3F005BAA31EC0E9E00E805D4F6EDB8795AE3034BD654926BF8F"
+    },
+    {
+      "path": "C:\\Users\\ckswl\\Desktop\\GITHUB\\D3D12\\Deffered\\bin\\x64\\Release\\Deffered.exe",
+      "sha256": "23453A2535CE9DF83424A2ED9F6948F659156167AC9965F08C1EF52930854C49"
+    },
+    {
+      "path": "C:\\Users\\ckswl\\Desktop\\GITHUB\\D3D12\\Deffered\\bin\\x64\\Release\\Renderer\\Shader\\DeferredLight.hlsl",
+      "sha256": "C48FF2A2DA71474A7E975AED5A2F9CC86FF33C9ED66FCA745E539A650833EA2C"
+    },
+    {
+      "path": "C:\\Users\\ckswl\\Desktop\\GITHUB\\D3D12\\Deffered\\bin\\x64\\Release\\Renderer\\Shader\\GBuffer.hlsl",
+      "sha256": "5E44F13A8813433DCC43691963C5E70D6871482254730C431A37E890039AE0EE"
+    },
+    {
+      "path": "C:\\Users\\ckswl\\Desktop\\GITHUB\\D3D12\\Deffered\\bin\\x64\\Release\\Renderer\\Shader\\InstancedMesh.hlsl",
+      "sha256": "6F4982D61C10BC80106A1CDB1E846AB3BAFEF535174E3BA16CE91F07CFE50A6E"
+    },
+    {
+      "path": "C:\\Users\\ckswl\\Desktop\\GITHUB\\D3D12\\Deffered\\bin\\x64\\Release\\Renderer\\Shader\\Mesh.hlsl",
+      "sha256": "0573473BA83ABDB1DCF1945227A5158529D589C1BDEBDFA464817E830F90E22F"
+    },
+    {
+      "path": "C:\\Users\\ckswl\\Desktop\\GITHUB\\D3D12\\Deffered\\bin\\x64\\Release\\Renderer\\Shader\\PbrCommon.hlsli",
+      "sha256": "8EA7E22EA51EEE7B0BA9EB3588ACBFB0207D163FECEC29B1952FB2CEE0BA91F3"
+    },
+    {
+      "path": "C:\\Users\\ckswl\\Desktop\\GITHUB\\D3D12\\Deffered\\bin\\x64\\Release\\Renderer\\Shader\\SelectionOutline.hlsli",
+      "sha256": "0BD48EB0A551D16F2D95C734366B8CCA3FD6766694255077E40D8B163970AEB6"
+    },
+    {
+      "path": "C:\\Users\\ckswl\\Desktop\\GITHUB\\D3D12\\Deffered\\bin\\x64\\Release\\Renderer\\Shader\\Skybox.hlsl",
+      "sha256": "088295AF199F2C8244B7A7BA92C162EAEA9D24CE2CF67AE044E8AA27B80F3179"
+    },
+    {
+      "path": "C:\\Users\\ckswl\\Desktop\\GITHUB\\D3D12\\Deffered\\bin\\x64\\Release\\Renderer\\Shader\\Benchmark\\MatchedLighting.hlsli",
+      "sha256": "131CE9CFE1A3D089AEFF40E02ECD28F8D0842D235E1D7885A3ACC5B099351B8A"
+    },
+    {
+      "path": "C:\\Users\\ckswl\\Desktop\\GITHUB\\D3D12\\Deffered\\bin\\x64\\Release\\Asset\\Skybox\\BRDF.dds",
+      "sha256": "0D5A793FC19F04CBD80982D8E387C5C920B9F4D50831A11F07D10C2AC9E2BB78"
+    },
+    {
+      "path": "C:\\Users\\ckswl\\Desktop\\GITHUB\\D3D12\\Deffered\\bin\\x64\\Release\\Asset\\Skybox\\cloudy\\cloudy_skybox.dds",
+      "sha256": "027F4DC491CE0A599004C6566E89A07C1C09D339444CFB92523211CA84778034"
+    },
+    {
+      "path": "C:\\Users\\ckswl\\Desktop\\GITHUB\\D3D12\\Deffered\\bin\\x64\\Release\\Asset\\Skybox\\cloudy\\cloudy_specular.dds",
+      "sha256": "A519D1BE2B64E3F005BAA31EC0E9E00E805D4F6EDB8795AE3034BD654926BF8F"
+    },
+    {
+      "path": "C:\\Users\\ckswl\\Desktop\\GITHUB\\D3D12\\Asset\\Mesh\\BoxTextured\\glTF\\BoxTextured.gltf",
+      "sha256": "1E9003A4A2A8822FF60DA529357BD8E4DEC4A59B1A479017993E7E2AD5FCEBEF"
+    },
+    {
+      "path": "C:\\Users\\ckswl\\Desktop\\GITHUB\\D3D12\\Asset\\Mesh\\BoxTextured\\glTF\\BoxTextured0.bin",
+      "sha256": "2E8C0483FA6665C686EC345F89DCBB2A694A587442584D09F8A83A59633327BC"
+    },
+    {
+      "path": "C:\\Users\\ckswl\\Desktop\\GITHUB\\D3D12\\Asset\\Mesh\\BoxTextured\\glTF\\CesiumLogoFlat.png",
+      "sha256": "89B210E0BA3C0A1AC10C93F8881B62E24F220731643215A68568A72381D3313E"
+    }
+  ],
+  "runs": [
+    {
+      "run_id": "n4-l0-Batched-Dispersed-r1",
+      "renderer": "Forward",
+      "exit_code": 0,
+      "status": "complete",
+      "error": ""
+    },
+    {
+      "run_id": "n4-l0-Batched-Dispersed-r1",
+      "renderer": "Deffered",
+      "exit_code": 0,
+      "status": "complete",
+      "error": ""
+    },
+    {
+      "run_id": "n4-l0-Unbatched-Dispersed-r1",
+      "renderer": "Forward",
+      "exit_code": 0,
+      "status": "complete",
+      "error": ""
+    },
+    {
+      "run_id": "n4-l0-Unbatched-Dispersed-r1",
+      "renderer": "Deffered",
+      "exit_code": 0,
+      "status": "complete",
+      "error": ""
+    },
+    {
+      "run_id": "n4-l4-Batched-Dispersed-r1",
+      "renderer": "Forward",
+      "exit_code": 0,
+      "status": "complete",
+      "error": ""
+    },
+    {
+      "run_id": "n4-l4-Batched-Dispersed-r1",
+      "renderer": "Deffered",
+      "exit_code": 0,
+      "status": "complete",
+      "error": ""
+    },
+    {
+      "run_id": "n4-l4-Unbatched-Dispersed-r1",
+      "renderer": "Forward",
+      "exit_code": 0,
+      "status": "complete",
+      "error": ""
+    },
+    {
+      "run_id": "n4-l4-Unbatched-Dispersed-r1",
+      "renderer": "Deffered",
+      "exit_code": 0,
+      "status": "complete",
+      "error": ""
+    }
+  ]
+}

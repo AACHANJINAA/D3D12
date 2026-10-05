@@ -1,6 +1,7 @@
 #include "../Common/stdafx.h"
 #include "Renderer.h"
 #include <roapi.h>
+#include "../../Benchmark/ComparisonMath.h"
 
 namespace
 {
@@ -73,15 +74,26 @@ bool RENDERER::initialize(HINSTANCE instance, int show_command)
     if (!update_deferred_resources()) return report_initialization_failure(L"deferred_resources");
     if (!_ui.initialize(_window, _device.Get(), _command_queue.Get(), frame_count))
         return report_initialization_failure(L"viewer_ui.initialize");
+    if (!_benchmark_lights.initialize(_device.Get(), _benchmark.light_data)) return report_initialization_failure(L"benchmark lights");
     if (_benchmark.isenabled)
     {
-        for (const auto& object : _benchmark.objects)
-            if (!import_model(object)) return false;
+        if (!_benchmark.populate(_scene, [&](const VIEWER_REQUEST& request) {
+            return import_model(request) ? _resources.find_model(request.path) : nullptr;
+        }, benchmark_error))
+        {
+            MessageBoxA(_window, benchmark_error.c_str(), "Benchmark import", MB_OK | MB_ICONERROR);
+            return false;
+        }
         _scene.select(0);
+        _benchmark.apply_workload(_scene);
         _benchmark.apply(_viewer_settings);
         CAMERA_MANAGER::get_instance().set_target_bounds({}, 1.0f);
         CAMERA_MANAGER::get_instance().set_pose(_benchmark.camera_position, _benchmark.camera_target);
     }
+    _benchmark.ui.renderer = "Deffered";
+    if (!_profiler.initialize(_device.Get(), _command_queue.Get(), _factory.Get(), _benchmark, "Deffered"))
+        return report_initialization_failure(L"benchmark profiler initialization/output exists");
+    SetWindowTextW(_window, _benchmark.isenabled ? L"Deffered | Comparison" : L"Deffered | PBR Viewer");
     return true;
 }
 
@@ -101,11 +113,17 @@ int RENDERER::run()
         }
         if (IsIconic(_window))
         {
+            if (_benchmark.isautomated) return EXIT_FAILURE;
             WaitMessage();
             continue;
         }
         render_frame();
         if (_is_render_failed) return EXIT_FAILURE;
+        if (_profiler.is_finished())
+        {
+            if (!wait_for_gpu() || !_profiler.finish(_fence.Get(), true)) return EXIT_FAILURE;
+            if (!_benchmark.iskeep_open) return EXIT_SUCCESS;
+        }
     }
 }
 
@@ -170,6 +188,7 @@ bool RENDERER::resize_swap_chain()
         return false;
     }
     _frame_index = _swap_chain->GetCurrentBackBufferIndex();
+    _command_allocator = _frame_allocators[_frame_index];
     return create_render_targets() && create_gbuffer_targets() && update_deferred_resources();
 }
 
@@ -254,12 +273,12 @@ bool RENDERER::initialize_device()
 bool RENDERER::create_command_objects()
 {
     CD3DX12_COMMAND_QUEUE_DESC queue_description(D3D12_COMMAND_LIST_TYPE_DIRECT);
-    if (FAILED(_device->CreateCommandQueue(&queue_description, IID_PPV_ARGS(&_command_queue))) 
-        || FAILED(_device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&_command_allocator))) 
-        || FAILED(_device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, _command_allocator.Get(), nullptr, IID_PPV_ARGS(&_command_list))))
-    {
-        return false;
-    }
+    if (FAILED(_device->CreateCommandQueue(&queue_description, IID_PPV_ARGS(&_command_queue)))) return false;
+    for (auto& allocator : _frame_allocators)
+        if (FAILED(_device->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&allocator)))) return false;
+    _command_allocator = _frame_allocators[0];
+    if (FAILED(_device->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT,
+        _command_allocator.Get(), nullptr, IID_PPV_ARGS(&_command_list)))) return false;
     return SUCCEEDED(_command_list->Close());
 }
 
@@ -353,7 +372,8 @@ bool RENDERER::create_gbuffer_targets()
 {
     const auto description = _render_targets[0]->GetDesc();
     return _gbuffer_render_pass.resize(_device.Get(),
-        static_cast<UINT>(description.Width), description.Height);
+        static_cast<UINT>(description.Width), description.Height,
+        _benchmark.isenabled ? _benchmark.ui.iscompact : _viewer_settings.iscompact_gbuffer);
 }
 
 bool RENDERER::update_deferred_resources()
@@ -539,14 +559,14 @@ bool RENDERER::create_texture()
     }
     ID3D12CommandList* command_lists[] = { _command_list.Get() };
     _command_queue->ExecuteCommandLists(1, command_lists);
-    move_to_next_frame();
-    if (_is_render_failed) return false;
+    if (!wait_for_gpu()) return false;
     _material_textures.release_uploads();
     return true;
 }
 
 void RENDERER::render_frame()
 {
+    if (!_benchmark.isenabled && !wait_for_gpu()) { _is_render_failed = true; return; }
     if (!_benchmark.isenabled) process_scene_request();
     if (_is_render_failed) return;
     static ULONGLONG last_frame_time = GetTickCount64();
@@ -588,6 +608,23 @@ void RENDERER::render_frame()
     else CAMERA_MANAGER::get_instance().set_target_bounds({}, 1.0f);
     CAMERA_MANAGER::get_instance().update(delta_time);
     }
+    else
+    {
+        const auto& latest = _profiler.latest();
+        _profiler.update_ui(_benchmark.ui);
+        _benchmark.ui.draws = latest.draws;
+        _benchmark.ui.prepare_ms = latest.prepare_ms;
+        _benchmark.ui.record_ms = latest.record_ms;
+        _benchmark.ui.gpu_ms = latest.gpu_ms;
+        _benchmark.ui.mesh_ms = latest.mesh_gpu_ms;
+        _benchmark.ui.lighting_ms = latest.lighting_gpu_ms;
+        const int previous_workload = _benchmark.ui.workload;
+        _ui.begin_frame(_viewer_settings, _scene, {}, false, &_benchmark.ui);
+        if (previous_workload != _benchmark.ui.workload) _benchmark.apply_workload(_scene);
+        _viewer_settings.mode = static_cast<VIEW_MODE>(_benchmark.ui.view);
+        _benchmark.isinstancing = _benchmark.ui.isinstancing;
+        _benchmark.light_data.count = static_cast<UINT>(_benchmark.ui.light_count);
+    }
     float scene_distance = 1.0f;
     for (const auto& object : _scene.get_objects())
         if (object.isvisible) scene_distance = (std::max)(scene_distance,
@@ -599,6 +636,11 @@ void RENDERER::render_frame()
     const float client_height = static_cast<float>(client_rect.bottom - client_rect.top);
     if (client_width <= 0.0f || client_height <= 0.0f) return;
     const auto buffer_description = _render_targets[0]->GetDesc();
+    if (_benchmark.isautomated && (client_width != _benchmark.width || client_height != _benchmark.height))
+    {
+        _is_render_failed = true;
+        return;
+    }
     if (buffer_description.Width != static_cast<UINT64>(client_width) ||
         buffer_description.Height != static_cast<UINT>(client_height))
     {
@@ -610,16 +652,45 @@ void RENDERER::render_frame()
         }
     }
     const float aspect_ratio = client_width / client_height;
+    const bool iscompact = _benchmark.isenabled ? _benchmark.ui.iscompact : _viewer_settings.iscompact_gbuffer;
+    if (_gbuffer_render_pass.is_compact() != iscompact)
+    {
+        if (!wait_for_gpu() || !create_gbuffer_targets() || !update_deferred_resources())
+        { _is_render_failed = true; return; }
+    }
+    const UINT profile_slot = _frame_index;
+    if (!_profiler.begin(profile_slot, _fence.Get())) { _is_render_failed = true; return; }
+    FRAME_MEASUREMENTS measurement;
+    const double prepare_start = FRAME_PROFILER::now();
     const MATH::MATRIX4X4 transform =
         CAMERA_MANAGER::get_instance().get_view_projection(aspect_ratio);
-    if (!_render_data.update(_device.Get(), _scene, _viewer_settings, transform,
-        CAMERA_MANAGER::get_instance().get_position()))
+    _benchmark.light_data.iscompact = _gbuffer_render_pass.is_compact() ? 1 : 0;
+    _benchmark.light_data.viewport_width = client_width;
+    _benchmark.light_data.viewport_height = client_height;
+    if (!comparison_inverse(transform, _benchmark.light_data.inverse_view_projection) ||
+        !_benchmark_lights.update(profile_slot, _benchmark.light_data)) { _is_render_failed = true; return; }
+    auto& render_data = _frame_render_data[_frame_index];
+    if (!render_data.update(_device.Get(), _scene, _viewer_settings, transform,
+        CAMERA_MANAGER::get_instance().get_position(), !_benchmark.isenabled || _benchmark.isinstancing))
     {
         _is_render_failed = true;
         report_initialization_failure(L"scene_render_data.update");
         return;
     }
+    if (!_benchmark.report_submission("Deffered", _scene, render_data.get_draws().size(), render_data.get_instance_count()))
+    {
+        _is_render_failed = true;
+        report_initialization_failure(L"benchmark submission count/report");
+        return;
+    }
 
+    measurement.draws = render_data.get_draws().size();
+    measurement.gbuffer_mib = client_width * client_height * (_gbuffer_render_pass.is_compact() ? 20.0 : 40.0) / (1024 * 1024);
+    measurement.instances = render_data.get_instance_count();
+    measurement.triangles = _scene.triangle_count();
+    measurement.lights = _benchmark.light_data.count;
+    measurement.prepare_ms = (FRAME_PROFILER::now() - prepare_start) * 1000;
+    const double record_start = FRAME_PROFILER::now();
     if (FAILED(_command_allocator->Reset()) ||
         FAILED(_command_list->Reset(_command_allocator.Get(), nullptr)))
     {
@@ -628,6 +699,7 @@ void RENDERER::render_frame()
         return;
     }
     
+    _profiler.stamp(_command_list.Get(), profile_slot, 0);
     const CD3DX12_RESOURCE_BARRIER to_render_target = CD3DX12_RESOURCE_BARRIER::transition(
         _render_targets[_frame_index].Get(),
         D3D12_RESOURCE_STATE_PRESENT,
@@ -645,41 +717,75 @@ void RENDERER::render_frame()
     _command_list->RSSetViewports(1, &viewport);
     _command_list->RSSetScissorRects(1, &scissor_rect);
 
+    _profiler.stamp(_command_list.Get(), profile_slot, 2);
     _gbuffer_render_pass.render(_command_list.Get(), depth_stencil_handle,
-        _render_data.get_draws(), _viewer_settings.mode == VIEW_MODE::wireframe);
+        render_data.get_draws(), _viewer_settings.mode == VIEW_MODE::wireframe);
+    _profiler.stamp(_command_list.Get(), profile_slot, 3);
 
     // Full-screen passes have depth disabled; keep geometry depth for future overlays.
     _command_list->OMSetRenderTargets(1, &render_target_handle, FALSE, nullptr);
-    if (_viewer_settings.is_skybox_visible)
+    _profiler.stamp(_command_list.Get(), profile_slot, 4);
+    if (_viewer_settings.is_skybox_visible &&
+        (_viewer_settings.mode == VIEW_MODE::lit || _viewer_settings.mode == VIEW_MODE::wireframe))
         _skybox_render_pass.render(_command_list.Get(), _viewer_settings.exposure);
-    _deferred_light_pass.render(_command_list.Get(), _render_data.get_lighting_constants());
-    if (!_benchmark.isenabled) _ui.render(_command_list.Get());
+    _profiler.stamp(_command_list.Get(), profile_slot, 5);
+    _profiler.stamp(_command_list.Get(), profile_slot, 6);
+    _deferred_light_pass.render(_command_list.Get(), render_data.get_lighting_constants(),
+        _benchmark_lights.address(_frame_index));
+    _profiler.stamp(_command_list.Get(), profile_slot, 7);
+    _profiler.stamp(_command_list.Get(), profile_slot, 8);
+    _ui.render(_command_list.Get());
+    _profiler.stamp(_command_list.Get(), profile_slot, 9);
     const CD3DX12_RESOURCE_BARRIER to_present = CD3DX12_RESOURCE_BARRIER::transition(
         _render_targets[_frame_index].Get(),
         D3D12_RESOURCE_STATE_RENDER_TARGET,
         D3D12_RESOURCE_STATE_PRESENT);
     _command_list->ResourceBarrier(1, &to_present);
+    _profiler.stamp(_command_list.Get(), profile_slot, 1);
+    _profiler.resolve(_command_list.Get(), profile_slot);
     if (FAILED(_command_list->Close()))
     {
         _is_render_failed = true;
         report_initialization_failure(L"render_frame.close");
         return;
     }
+    measurement.record_ms = (FRAME_PROFILER::now() - record_start) * 1000;
     ID3D12CommandList* command_lists[] = { _command_list.Get() };
+    const double submit_start = FRAME_PROFILER::now();
     _command_queue->ExecuteCommandLists(1, command_lists);
+    measurement.submit_ms = (FRAME_PROFILER::now() - submit_start) * 1000;
+    const double present_start = FRAME_PROFILER::now();
     if (FAILED(_swap_chain->Present(_benchmark.isenabled ? _benchmark.vsync : 1, 0)))
     {
         _is_render_failed = true;
         report_initialization_failure(L"render_frame.present");
         return;
     }
+    measurement.present_ms = (FRAME_PROFILER::now() - present_start) * 1000;
+    const double sync_start = FRAME_PROFILER::now();
     move_to_next_frame();
+    measurement.sync_ms = (FRAME_PROFILER::now() - sync_start) * 1000;
+    if (!_is_render_failed) _profiler.submit(profile_slot, _frame_fences[profile_slot], measurement);
 }
 
 void RENDERER::move_to_next_frame()
 {
-    if (!wait_for_gpu()) _is_render_failed = true;
+    const UINT64 signal = ++_fence_value;
+    if (FAILED(_command_queue->Signal(_fence.Get(), signal))) { _is_render_failed = true; return; }
+    _frame_fences[_frame_index] = signal;
     _frame_index = _swap_chain->GetCurrentBackBufferIndex();
+    const UINT64 required = _frame_fences[_frame_index];
+    if (_fence->GetCompletedValue() < required)
+    {
+        if (FAILED(_fence->SetEventOnCompletion(required, _fence_event)) ||
+            WaitForSingleObject(_fence_event, INFINITE) != WAIT_OBJECT_0)
+        {
+            _is_render_failed = true;
+            return;
+        }
+    }
+    if (FAILED(_device->GetDeviceRemovedReason())) _is_render_failed = true;
+    _command_allocator = _frame_allocators[_frame_index];
 }
 
 bool RENDERER::wait_for_gpu()
@@ -698,13 +804,14 @@ bool RENDERER::wait_for_gpu()
 void RENDERER::shutdown()
 {
     wait_for_gpu();
+    _profiler.finish(_fence.Get(), false);
     _ui.shutdown();
     if (_fence_event != nullptr)
     {
         CloseHandle(_fence_event);
         _fence_event = nullptr;
     }
-    _render_data.reset();
+    for (auto& data : _frame_render_data) data.reset();
     _failed_import_list.Reset();
     _failed_import_allocator.Reset();
     _failed_import.reset();
@@ -715,6 +822,7 @@ void RENDERER::shutdown()
     _gbuffer_render_pass.release_targets();
     _command_list.Reset();
     _command_allocator.Reset();
+    for (auto& allocator : _frame_allocators) allocator.Reset();
     for (auto& render_target : _render_targets) render_target.Reset();
     _render_target_heap.Reset();
     _swap_chain.Reset();
@@ -747,9 +855,10 @@ LRESULT CALLBACK RENDERER::window_procedure(HWND window, UINT message, WPARAM wp
         return TRUE;
     }
     auto* renderer = reinterpret_cast<RENDERER*>(GetWindowLongPtrW(window, GWLP_USERDATA));
-    const bool ishandled = renderer && renderer->_ui.process_message(window, message, wparam, lparam);
-    INPUT_MANAGER::get_instance().process_message(message, wparam,
-        renderer && renderer->_ui.wants_mouse());
+    const bool ishandled = renderer &&
+        renderer->_ui.process_message(window, message, wparam, lparam);
+    if (renderer && !renderer->_benchmark.isenabled)
+        INPUT_MANAGER::get_instance().process_message(message, wparam, renderer->_ui.wants_mouse());
     if (message == WM_GETMINMAXINFO)
     {
         auto* limits = reinterpret_cast<MINMAXINFO*>(lparam);

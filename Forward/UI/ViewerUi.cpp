@@ -6,8 +6,29 @@
 #include "../ThirdParty/ImGui/imgui.h"
 #include "../ThirdParty/ImGui/backends/imgui_impl_win32.h"
 #include "../ThirdParty/ImGui/backends/imgui_impl_dx12.h"
+#include <cstdio>
+#include "../../Benchmark/ComparisonUi.h"
 
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND, UINT, WPARAM, LPARAM);
+
+namespace
+{
+    void draw_fps(bool ispanels_visible)
+    {
+        const auto& io = ImGui::GetIO();
+        const float fps = io.Framerate;
+        char label[80]{};
+        std::snprintf(label, sizeof(label), "%.0f FPS  |  %.2f ms", fps, fps > 0 ? 1000.0f / fps : 0.0f);
+        const ImVec2 text_size = ImGui::CalcTextSize(label);
+        const ImVec2 position = ispanels_visible
+            ? ImVec2((io.DisplaySize.x - 190.0f) * 0.5f, io.DisplaySize.x < 1050.0f ? 92.0f : 56.0f)
+            : ImVec2(12, 12);
+        auto* overlay = ImGui::GetForegroundDrawList();
+        overlay->AddRectFilled(position, ImVec2(position.x + 190.0f, position.y + text_size.y + 12),
+            IM_COL32(20, 23, 27, 220), 3.0f);
+        overlay->AddText(ImVec2(position.x + 8, position.y + 6), IM_COL32(255, 255, 255, 255), label);
+    }
+}
 
 bool VIEWER_UI::initialize(HWND window, ID3D12Device* device,
     ID3D12CommandQueue* queue, int frame_count)
@@ -74,16 +95,22 @@ void VIEWER_UI::set_textures(ID3D12Device* device,
     }
 }
 
-void VIEWER_UI::begin_frame(VIEWER_SETTINGS& settings, SCENE& scene, const VIEWER_STATS& stats)
+void VIEWER_UI::begin_frame(VIEWER_SETTINGS& settings, SCENE& scene, const VIEWER_STATS& stats,
+    bool ispanels_visible, BENCHMARK_UI_STATE* comparison)
 {
     if (_is_frame_open) ImGui::EndFrame();
     ImGui_ImplDX12_NewFrame();
     ImGui_ImplWin32_NewFrame();
     ImGui::NewFrame();
     _is_frame_open = true;
-    _panels.draw(settings, scene, stats, _textures);
-    _import_dialog.draw();
-    if (!_import_dialog.is_open()) VIEWPORT_SELECTION::update(scene);
+    if (ispanels_visible)
+    {
+        _panels.draw(settings, scene, stats, _textures);
+        _import_dialog.draw();
+        if (!_import_dialog.is_open()) VIEWPORT_SELECTION::update(scene);
+    }
+    draw_fps(ispanels_visible);
+    if (comparison) draw_comparison_ui(*comparison);
 }
 
 VIEWER_REQUEST VIEWER_UI::take_request()

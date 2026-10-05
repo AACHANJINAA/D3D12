@@ -157,9 +157,10 @@ void VIEWER_PANELS::draw(VIEWER_SETTINGS& settings, SCENE& scene, const VIEWER_S
     auto* selected = scene.selected();
     auto& object = selected ? *selected : empty_object;
     const char* model_name = selected ? selected->name.c_str() : nullptr;
-    const float inspector_height = (available - 16.0f) * 0.38f;
-    const float display_height = (available - 16.0f) * 0.28f;
-    const float light_height = available - inspector_height - display_height - 16.0f;
+    const float inspector_height = _is_inspector
+        ? (std::clamp)(available - 478.0f, 100.0f, 200.0f) : -8.0f;
+    const float display_height = _is_display ? 282.0f : -8.0f;
+    const float light_height = (std::max)(180.0f, available - inspector_height - display_height - 16.0f);
     if (_is_inspector)
     {
         if (begin_panel("INSPECTOR", _is_inspector, { right, top },
@@ -236,9 +237,16 @@ void VIEWER_PANELS::draw(VIEWER_SETTINGS& settings, SCENE& scene, const VIEWER_S
                 if (button(modes[index], static_cast<int>(settings.mode) == index, { mode_width, 28 }))
                     settings.mode = static_cast<VIEW_MODE>(index);
             }
+            if (button("G-BUFFER OVERVIEW", settings.mode == VIEW_MODE::gbuffer, { -1, 28 }))
+                settings.mode = VIEW_MODE::gbuffer;
+            const char* layouts[] = { "Full (40 B/pixel)", "Compact (20 B/pixel)" };
+            int layout = settings.iscompact_gbuffer ? 1 : 0;
+            ImGui::SetNextItemWidth(-1);
+            if (ImGui::Combo("##gbuffer_layout", &layout, layouts, 2))
+                settings.iscompact_gbuffer = layout == 1;
             ImGui::Checkbox("Skybox", &settings.is_skybox_visible);
-            if (settings.mode == VIEW_MODE::depth)
-                ImGui::SliderFloat("Range", &settings.depth_range, 1, 100, "%.1f");
+            if (settings.mode == VIEW_MODE::depth || settings.mode == VIEW_MODE::gbuffer)
+                ImGui::SliderFloat("Range", &settings.depth_range, 0.1f, 100, "%.1f");
         }
         ImGui::End();
     }

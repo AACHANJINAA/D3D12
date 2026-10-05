@@ -41,10 +41,10 @@ public:
 private:
     VIEWER_REQUEST _request;
     bool _is_scene = true;
-    bool _is_inspector = true;
+    bool _is_inspector = false;
     bool _is_display = true;
     bool _is_light = true;
-    bool _is_assets = true;
+    bool _is_assets = false;
     bool _is_status = true;
     bool _is_hidden = false;
     int _transform_tab = 0;

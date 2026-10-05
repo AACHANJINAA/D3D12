@@ -8,11 +8,11 @@
   "light_color": [1, 1, 1],
   "light_intensity": 0.8,
   "objects": [
-    {"model": "../Asset/Mesh/BoxTextured/glTF/BoxTextured.gltf", "position": [-2, -1, 0]},
-    {"model": "../Asset/Mesh/BoxTextured/glTF/BoxTextured.gltf", "position": [0, -1, 0]},
-    {"model": "../Asset/Mesh/BoxTextured/glTF/BoxTextured.gltf", "position": [2, -1, 0]},
-    {"model": "../Asset/Mesh/BoxTextured/glTF/BoxTextured.gltf", "position": [-2, 1, 0]},
-    {"model": "../Asset/Mesh/BoxTextured/glTF/BoxTextured.gltf", "position": [0, 1, 0]},
-    {"model": "../Asset/Mesh/BoxTextured/glTF/BoxTextured.gltf", "position": [2, 1, 0]}
+    {"model": "../Asset/Mesh/DamagedHelmet/DamagedHelmet.gltf", "position": [-2, -1, 0], "scale": [0.5, 0.5, 0.5]},
+    {"model": "../Asset/Mesh/DamagedHelmet/DamagedHelmet.gltf", "position": [0, -1, 0], "scale": [0.5, 0.5, 0.5]},
+    {"model": "../Asset/Mesh/DamagedHelmet/DamagedHelmet.gltf", "position": [2, -1, 0], "scale": [0.5, 0.5, 0.5]},
+    {"model": "../Asset/Mesh/DamagedHelmet/DamagedHelmet.gltf", "position": [-2, 1, 0], "scale": [0.5, 0.5, 0.5]},
+    {"model": "../Asset/Mesh/DamagedHelmet/DamagedHelmet.gltf", "position": [0, 1, 0], "scale": [0.5, 0.5, 0.5]},
+    {"model": "../Asset/Mesh/DamagedHelmet/DamagedHelmet.gltf", "position": [2, 1, 0], "scale": [0.5, 0.5, 0.5]}
   ]
 }

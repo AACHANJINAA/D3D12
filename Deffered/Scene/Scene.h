@@ -30,6 +30,8 @@ class SCENE
 {
 public:
     static constexpr size_t object_limit = 128;
+    static constexpr size_t benchmark_object_limit = 50000;
+    void set_benchmark_objects(std::vector<SCENE_OBJECT> objects);
     UINT64 add(const std::shared_ptr<MODEL_RESOURCE>& model);
     bool replace(UINT64 id, const std::shared_ptr<MODEL_RESOURCE>& model);
     bool erase(UINT64 id);

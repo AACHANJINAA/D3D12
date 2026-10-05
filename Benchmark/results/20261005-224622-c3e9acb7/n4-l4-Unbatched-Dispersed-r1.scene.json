@@ -1,0 +1,56 @@
+{
+  "profile": "matched_quality",
+  "width": 1280,
+  "height": 720,
+  "vsync": 0,
+  "instancing": false,
+  "run_id": "n4-l4-Unbatched-Dispersed-r1",
+  "output_directory": "C:\\Users\\ckswl\\Desktop\\GITHUB\\D3D12\\Benchmark\\results\\20261005-224622-c3e9acb7",
+  "warmup_seconds": 0.2,
+  "measurement_seconds": 0.5,
+  "camera_position": [
+    0,
+    0,
+    -7
+  ],
+  "camera_target": [
+    0,
+    0,
+    0
+  ],
+  "light_count": 4,
+  "directional_light": false,
+  "seed": 12345,
+  "light_center": [
+    0,
+    0,
+    -3
+  ],
+  "light_extent": [
+    1.2,
+    0.6,
+    1
+  ],
+  "light_radius": 12,
+  "point_intensity": 30,
+  "grid": {
+    "spacing": [
+      1.2,
+      1.2,
+      0
+    ],
+    "model": "C:\\Users\\ckswl\\Desktop\\GITHUB\\D3D12\\Asset\\Mesh\\BoxTextured\\glTF\\BoxTextured.gltf",
+    "origin": [
+      -1.2,
+      -0.6,
+      0
+    ],
+    "columns": 3,
+    "count": 4,
+    "scale": [
+      0.8,
+      0.8,
+      0.8
+    ]
+  }
+}

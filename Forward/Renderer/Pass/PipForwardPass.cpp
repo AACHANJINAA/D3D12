@@ -45,24 +45,6 @@ namespace
         return result;
     }
 
-    bool is_visible(const GLTF_PRIMITIVE& primitive, const MATRIX4X4& clip)
-    {
-        bool outside[6]{true,true,true,true,true,true};
-        for (int corner = 0; corner < 8; ++corner)
-        {
-            const VECTOR3 point{ corner & 1 ? primitive.local_maximum.x : primitive.local_minimum.x,
-                corner & 2 ? primitive.local_maximum.y : primitive.local_minimum.y,
-                corner & 4 ? primitive.local_maximum.z : primitive.local_minimum.z };
-            const auto xyz = transform_point(point, clip);
-            const float w = point.x * clip.values[0][3] + point.y * clip.values[1][3] + point.z * clip.values[2][3] + clip.values[3][3];
-            outside[0] &= xyz.x < -w; outside[1] &= xyz.x > w;
-            outside[2] &= xyz.y < -w; outside[3] &= xyz.y > w;
-            outside[4] &= xyz.z < 0; outside[5] &= xyz.z > w;
-        }
-        for (bool isoutside : outside) if (isoutside) return false;
-        return true;
-    }
-
     MATERIAL_DATA material_data(const GLTF_MATERIAL& material, const MATERIAL_SETTINGS& settings)
     {
         MATERIAL_DATA data{};
@@ -76,6 +58,7 @@ namespace
             material.metallic_factor * settings.metallic_multiplier };
         data.roughness = material.roughness_factor * settings.roughness_multiplier;
         data.normal_scale = material.normal_scale;
+        data.padding = material.occlusion_strength;
         data.has_base = !material.texture_paths[0].empty();
         data.has_metal = !material.texture_paths[1].empty();
         data.has_normal = !material.texture_paths[2].empty();
@@ -85,13 +68,15 @@ namespace
     }
 }
 
-bool PIP_FORWARD_PASS::initialize(ID3D12Device* device)
+bool PIP_FORWARD_PASS::initialize(ID3D12Device* device, bool isbackface_culling, bool ismatched)
 {
     ComPtr<ID3DBlob> vertex, pixel;
-    if (!SHADER::get_instance().compile_shader(L"Pip/Gltf_Shader.hlsl", "VS_GLTF", "vs_5_1", vertex) ||
-        !SHADER::get_instance().compile_shader(L"Pip/Gltf_Shader.hlsl", "PS_GLTF", "ps_5_1", pixel)) return false;
+    if (!SHADER::get_instance().compile_shader(ismatched ? L"Pip/MatchedForward.hlsl" : L"Pip/Gltf_Shader.hlsl",
+        ismatched ? "VS_Matched" : "VS_GLTF", "vs_5_1", vertex) ||
+        !SHADER::get_instance().compile_shader(ismatched ? L"Pip/MatchedForward.hlsl" : L"Pip/Gltf_Shader.hlsl",
+            ismatched ? "PS_Matched" : "PS_GLTF", "ps_5_1", pixel)) return false;
 
-    // Preserve PIP's 13 root parameters, register assignments and static samplers.
+    // Keep PIP's register assignments; append b6 and s2 for matched comparisons.
     D3D12_DESCRIPTOR_RANGE ranges[8]{};
     const UINT registers[] = {0,1,2,3,8,4,11,16};
     for (UINT index = 0; index < 8; ++index)
@@ -101,7 +86,7 @@ bool PIP_FORWARD_PASS::initialize(ID3D12Device* device)
         ranges[index].BaseShaderRegister = registers[index];
         ranges[index].OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
     }
-    D3D12_ROOT_PARAMETER parameters[13]{};
+    D3D12_ROOT_PARAMETER parameters[14]{};
     for (UINT index = 0; index < 4; ++index)
     {
         parameters[index].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
@@ -121,10 +106,13 @@ bool PIP_FORWARD_PASS::initialize(ID3D12Device* device)
     parameters[12].ParameterType = D3D12_ROOT_PARAMETER_TYPE_SRV;
     parameters[12].Descriptor.ShaderRegister = 12;
     parameters[12].ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX;
-    D3D12_STATIC_SAMPLER_DESC samplers[2]{};
-    samplers[0].Filter = D3D12_FILTER_ANISOTROPIC;
+    parameters[13].ParameterType = D3D12_ROOT_PARAMETER_TYPE_CBV;
+    parameters[13].Descriptor.ShaderRegister = 6;
+    parameters[13].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+    D3D12_STATIC_SAMPLER_DESC samplers[3]{};
+    samplers[0].Filter = ismatched ? D3D12_FILTER_MIN_MAG_MIP_LINEAR : D3D12_FILTER_ANISOTROPIC;
     samplers[0].AddressU = samplers[0].AddressV = samplers[0].AddressW = D3D12_TEXTURE_ADDRESS_MODE_WRAP;
-    samplers[0].MaxAnisotropy = 16;
+    samplers[0].MaxAnisotropy = ismatched ? 1 : 16;
     samplers[0].MaxLOD = D3D12_FLOAT32_MAX;
     samplers[0].ComparisonFunc = D3D12_COMPARISON_FUNC_ALWAYS;
     samplers[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
@@ -133,11 +121,16 @@ bool PIP_FORWARD_PASS::initialize(ID3D12Device* device)
     samplers[1].Filter = D3D12_FILTER_COMPARISON_MIN_MAG_LINEAR_MIP_POINT;
     samplers[1].AddressU = samplers[1].AddressV = samplers[1].AddressW = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
     samplers[1].ComparisonFunc = D3D12_COMPARISON_FUNC_LESS_EQUAL;
-    const D3D12_ROOT_SIGNATURE_DESC root{13, parameters, 2, samplers, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT};
+    samplers[2] = samplers[0];
+    samplers[2].Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
+    samplers[2].ShaderRegister = 2;
+    samplers[2].AddressU = samplers[2].AddressV = samplers[2].AddressW = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
+    const D3D12_ROOT_SIGNATURE_DESC root{14, parameters, 3, samplers, D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT};
     ComPtr<ID3DBlob> serialized, error;
     if (FAILED(D3D12SerializeRootSignature(&root, D3D_ROOT_SIGNATURE_VERSION_1, &serialized, &error)))
     {
         if (error) OutputDebugStringA(static_cast<const char*>(error->GetBufferPointer()));
+        if (error) std::fputs(static_cast<const char*>(error->GetBufferPointer()), stderr);
         return false;
     }
     if (FAILED(device->CreateRootSignature(0, serialized->GetBufferPointer(), serialized->GetBufferSize(), IID_PPV_ARGS(&_root)))) return false;
@@ -154,7 +147,7 @@ bool PIP_FORWARD_PASS::initialize(ID3D12Device* device)
     description.VS = {vertex->GetBufferPointer(), vertex->GetBufferSize()};
     description.PS = {pixel->GetBufferPointer(), pixel->GetBufferSize()};
     description.RasterizerState = CD3DX12_RASTERIZER_DESC();
-    description.RasterizerState.CullMode = D3D12_CULL_MODE_BACK;
+    description.RasterizerState.CullMode = isbackface_culling ? D3D12_CULL_MODE_BACK : D3D12_CULL_MODE_NONE;
     description.BlendState = CD3DX12_BLEND_DESC();
     description.DepthStencilState = CD3DX12_DEPTH_STENCIL_DESC();
     description.SampleMask = UINT_MAX;
@@ -171,37 +164,39 @@ bool PIP_FORWARD_PASS::initialize(ID3D12Device* device)
 
 bool PIP_FORWARD_PASS::update(ID3D12Device* device, UINT frame_index, const SCENE& scene,
     const VIEWER_SETTINGS& settings, const MATRIX4X4& view, const MATRIX4X4& projection,
-    const VECTOR3& camera, ID3D12Resource* environment, ID3D12Resource* specular, ID3D12Resource* brdf)
+    const VECTOR3& camera, ID3D12Resource* environment, ID3D12Resource* specular, ID3D12Resource* brdf,
+    bool isinstancing, bool iscached)
 {
     if (frame_index >= frame_count || !environment || !specular || !brdf) return false;
     auto& frame = _frames[frame_index];
+    frame.srv_writes = 0;
     struct GROUP { DRAW draw; MATERIAL_DATA material; std::vector<MATRIX4X4> matrices; };
     std::vector<GROUP> groups;
     std::unordered_map<std::string, size_t> lookup;
-    const auto view_projection = multiply(view, projection);
     for (const auto& object : scene.get_objects())
     {
         if (!object.isvisible || !object.model) continue;
-        const auto offset = subtract(object.position, camera);
-        if (dot(offset, offset) >= 500.0f * 500.0f) continue;
         const auto& primitives = object.model->get_mesh().get_primitives();
         for (size_t index = 0; index < primitives.size(); ++index)
         {
             const auto& primitive = primitives[index];
             const auto world = multiply(primitive.node_transform, object.get_transform());
-            if (!is_visible(primitive, multiply(world, view_projection))) continue;
             const auto data = material_data(object.model->get_materials().at(primitive.material_index)->get_parameters(),
                 object.materials.at(primitive.material_index));
-            const auto pointer = reinterpret_cast<uintptr_t>(object.model.get());
-            std::string key(reinterpret_cast<const char*>(&pointer), sizeof(pointer));
-            key.append(reinterpret_cast<const char*>(&index), sizeof(index));
-            key.append(reinterpret_cast<const char*>(&data), sizeof(data));
-            auto [found, isinserted] = lookup.emplace(std::move(key), groups.size());
-            if (isinserted) groups.push_back({{object.model, static_cast<UINT>(index)}, data, {}});
-            groups[found->second].matrices.push_back(transpose(world));
+            size_t group_index = groups.size();
+            if (isinstancing)
+            {
+                const auto pointer = reinterpret_cast<uintptr_t>(object.model.get());
+                std::string key(reinterpret_cast<const char*>(&pointer), sizeof(pointer));
+                key.append(reinterpret_cast<const char*>(&index), sizeof(index));
+                key.append(reinterpret_cast<const char*>(&data), sizeof(data));
+                group_index = lookup.emplace(std::move(key), groups.size()).first->second;
+            }
+            if (group_index == groups.size()) groups.push_back({{object.model, static_cast<UINT>(index)}, data, {}});
+            groups[group_index].matrices.push_back(transpose(world));
         }
     }
-    if (groups.size() > 50000) return false;
+    if (groups.size() > 65536) return false;
     frame.draws.clear();
     size_t matrix_count = 0;
     for (const auto& group : groups) matrix_count += group.matrices.size();
@@ -230,6 +225,7 @@ bool PIP_FORWARD_PASS::update(ID3D12Device* device, UINT frame_index, const SCEN
         description.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
         if (FAILED(device->CreateDescriptorHeap(&description, IID_PPV_ARGS(&frame.heap)))) return false;
         frame.descriptor_capacity = descriptors;
+        frame.descriptor_resources.clear();
     }
     const CAMERA_DATA camera_data{transpose(view), transpose(projection), {camera.x,camera.y,camera.z,1}};
     const WORLD_DATA world_data{transpose(identity_matrix()), transpose(identity_matrix()), 0, -1, {}};
@@ -254,6 +250,7 @@ bool PIP_FORWARD_PASS::update(ID3D12Device* device, UINT frame_index, const SCEN
     std::memcpy(frame.mapped + world_offset, &world_data, sizeof(world_data));
     std::memcpy(frame.mapped + shadow_offset, &shadow_data, sizeof(shadow_data));
     auto handle = frame.heap->GetCPUDescriptorHandleForHeapStart();
+    frame.descriptor_resources.resize(groups.size());
     UINT first_instance = 0;
     for (size_t index = 0; index < groups.size(); ++index)
     {
@@ -266,8 +263,15 @@ bool PIP_FORWARD_PASS::update(ID3D12Device* device, UINT frame_index, const SCEN
         first_instance += group.draw.instance_count;
         const auto material_index = group.draw.model->get_mesh().get_primitives()[group.draw.primitive].material_index;
         const auto& textures = group.draw.model->get_materials()[material_index]->get_textures();
-        ID3D12Resource* resources[] = {textures.get_texture(0), textures.get_texture(2), textures.get_texture(1),
+        std::array<ID3D12Resource*, 10> resources = {textures.get_texture(0), textures.get_texture(2), textures.get_texture(1),
             textures.get_texture(4), environment, specular, brdf, textures.get_texture(3), nullptr, nullptr};
+        if (iscached && frame.descriptor_resources[index] == resources)
+        {
+            handle.ptr += descriptors_per_draw * _descriptor_size;
+            frame.draws.push_back(std::move(group.draw));
+            continue;
+        }
+        frame.descriptor_resources[index] = resources;
         for (UINT slot = 0; slot < descriptors_per_draw; ++slot)
         {
             D3D12_SHADER_RESOURCE_VIEW_DESC description{};
@@ -293,6 +297,7 @@ bool PIP_FORWARD_PASS::update(ID3D12Device* device, UINT frame_index, const SCEN
                 description.Texture2D.MipLevels = 1;
             }
             device->CreateShaderResourceView(resources[slot], &description, handle);
+            ++frame.srv_writes;
             handle.ptr += _descriptor_size;
         }
         frame.draws.push_back(std::move(group.draw));
@@ -300,7 +305,8 @@ bool PIP_FORWARD_PASS::update(ID3D12Device* device, UINT frame_index, const SCEN
     return true;
 }
 
-void PIP_FORWARD_PASS::render(ID3D12GraphicsCommandList* list, UINT frame_index, bool iswireframe) const
+void PIP_FORWARD_PASS::render(ID3D12GraphicsCommandList* list, UINT frame_index, bool iswireframe,
+    D3D12_GPU_VIRTUAL_ADDRESS lights) const
 {
     const auto& frame = _frames[frame_index];
     if (frame.draws.empty()) return;
@@ -314,6 +320,7 @@ void PIP_FORWARD_PASS::render(ID3D12GraphicsCommandList* list, UINT frame_index,
     list->SetGraphicsRootConstantBufferView(1, base + camera_offset);
     list->SetGraphicsRootConstantBufferView(3, base + light_offset);
     list->SetGraphicsRootConstantBufferView(10, base + shadow_offset);
+    if (lights) list->SetGraphicsRootConstantBufferView(13, lights);
     for (size_t index = 0; index < frame.draws.size(); ++index)
     {
         const auto& draw = frame.draws[index];

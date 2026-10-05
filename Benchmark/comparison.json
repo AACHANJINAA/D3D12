@@ -1,0 +1,24 @@
+{
+  "profile": "matched_quality",
+  "width": 1280,
+  "height": 720,
+  "vsync": 0,
+  "instancing": true,
+  "camera_position": [0, 0, -36],
+  "camera_target": [0, 0, 0],
+  "light_count": 8,
+  "directional_light": false,
+  "light_center": [0, 0, -3],
+  "light_extent": [14, 10, 1],
+  "light_radius": 12,
+  "point_intensity": 30,
+  "seed": 12345,
+  "grid": {
+    "model": "../Asset/Mesh/DamagedHelmet/DamagedHelmet.gltf",
+    "count": 400,
+    "columns": 25,
+    "origin": [-14.4, -9, 0],
+    "spacing": [1.2, 1.2, 0],
+    "scale": [0.4, 0.4, 0.4]
+  }
+}

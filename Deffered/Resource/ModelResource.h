@@ -13,7 +13,7 @@ public:
     const MESH_RESOURCE& get_geometry() const { return *_geometry; }
     const std::vector<std::shared_ptr<MATERIAL_RESOURCE>>& get_materials() const { return _materials; }
     const std::string& get_name() const { return _name; }
-    void release_uploads() { for (auto& material : _materials) material->release_uploads(); }
+    void release_uploads() { _geometry->release_uploads(); for (auto& material : _materials) material->release_uploads(); }
 
 private:
     GLTF_MESH _mesh;

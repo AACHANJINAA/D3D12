@@ -1,4 +1,8 @@
 #include "PbrCommon.hlsli"
+#define BENCH_SPECULAR specular_environment_texture
+#define BENCH_BRDF brdf_lut
+#define BENCH_SAMPLER texture_sampler
+#include "Benchmark/MatchedLighting.hlsli"
 
 Texture2D<float4> gbuffer_albedo : register(t0);
 Texture2D<float4> gbuffer_normal : register(t1);
@@ -7,6 +11,7 @@ Texture2D<float4> gbuffer_emissive : register(t3);
 Texture2D<float4> gbuffer_position : register(t4);
 
 #include "SelectionOutline.hlsli"
+#include "GBufferDebug.hlsli"
 
 float4 VS_Deferred(uint vertex_id : SV_VertexID) : SV_POSITION
 {
@@ -16,11 +21,12 @@ float4 VS_Deferred(uint vertex_id : SV_VertexID) : SV_POSITION
 
 float4 PS_Deferred(float4 position : SV_POSITION) : SV_TARGET
 {
+    if (view_mode == 9) return draw_gbuffer_overview(position.xy);
     int3 pixel = int3(int2(position.xy), 0);
-    float4 world = gbuffer_position.Load(pixel);
+    float4 world = read_gbuffer_world(pixel);
     // Empty pixels keep the skybox already drawn into the back buffer.
     clip(world.w - 0.5f);
-    if (is_selection_outline(pixel.xy) ||
+    if ((view_mode == 0 && is_selection_outline(pixel.xy)) ||
         (view_mode == 8 && gbuffer_normal.Load(pixel).a > 0.5f))
         return float4(1.0f, 0.55f, 0.05f, 1.0f);
     float4 albedo = gbuffer_albedo.Load(pixel);
@@ -44,6 +50,9 @@ float4 PS_Deferred(float4 position : SV_POSITION) : SV_TARGET
         return float4(depth.xxx, 1);
     }
     if (view_mode == 8) return float4(0.9f, 0.9f, 0.9f, 1);
+    if (bench_matched)
+        return bench_shade(albedo, world.xyz, normal, material.x, max(material.y, .04), material.z,
+            emissive, camera_position, light_direction, light_color * light_intensity);
     return shade_surface(albedo, world.xyz, normal, material.x,
         max(material.y, 0.04f), material.z, emissive);
 }

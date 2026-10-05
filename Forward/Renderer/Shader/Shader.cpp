@@ -45,6 +45,7 @@ bool SHADER::compile_shader(
     if (FAILED(result) && shader_error != nullptr)
     {
         OutputDebugStringA(static_cast<const char*>(shader_error->GetBufferPointer()));
+        std::fputs(static_cast<const char*>(shader_error->GetBufferPointer()), stderr);
     }
     return SUCCEEDED(result);
 }

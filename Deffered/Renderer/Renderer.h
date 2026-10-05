@@ -14,6 +14,7 @@
 #include "../Resource/Texture.h"
 #include "../UI/ViewerUi.h"
 #include "../../Benchmark/BenchmarkScene.h"
+#include "../../Benchmark/FrameProfiler.h"
 
 class RENDERER
 {
@@ -64,13 +65,15 @@ private:
     ComPtr<ID3D12DescriptorHeap> _depth_stencil_heap;
     ComPtr<ID3D12Resource> _depth_stencil_buffer;
     ComPtr<ID3D12CommandAllocator> _command_allocator;
+    std::array<ComPtr<ID3D12CommandAllocator>, frame_count> _frame_allocators;
+    std::array<UINT64, frame_count> _frame_fences{};
     ComPtr<ID3D12GraphicsCommandList> _command_list;
     GBUFFER_RENDER_PASS _gbuffer_render_pass;
     DEFERRED_LIGHT_PASS _deferred_light_pass;
     SKYBOX_RENDER_PASS _skybox_render_pass;
     SCENE _scene;
     RESOURCE_MANAGER _resources;
-    SCENE_RENDER_DATA _render_data;
+    std::array<SCENE_RENDER_DATA, frame_count> _frame_render_data;
     std::shared_ptr<MODEL_RESOURCE> _failed_import;
     ComPtr<ID3D12CommandAllocator> _failed_import_allocator;
     ComPtr<ID3D12GraphicsCommandList> _failed_import_list;
@@ -78,6 +81,8 @@ private:
     VIEWER_UI _ui;
     VIEWER_SETTINGS _viewer_settings;
     BENCHMARK_SCENE _benchmark;
+    BENCHMARK_LIGHT_BUFFER _benchmark_lights;
+    FRAME_PROFILER _profiler;
     ComPtr<ID3D12Fence> _fence;
     UINT64 _fence_value = 0;
     HANDLE _fence_event = nullptr;

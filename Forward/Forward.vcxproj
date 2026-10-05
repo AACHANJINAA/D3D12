@@ -327,6 +327,7 @@
     <EnvironmentAsset Include="$(ProjectDir)..\Asset\Skybox\**\*.dds" />
   </ItemGroup>
   <Target Name="CopyRuntimeResources" AfterTargets="Build">
+    <Copy SourceFiles="$(ProjectDir)..\Benchmark\Shader\MatchedLighting.hlsli" DestinationFiles="$(OutDir)Renderer\Shader\Benchmark\MatchedLighting.hlsli" SkipUnchangedFiles="true" />
     <Copy SourceFiles="@(RuntimeShader)" DestinationFiles="@(RuntimeShader-&gt;'$(OutDir)Renderer\Shader\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
     <Copy SourceFiles="@(EnvironmentAsset)" DestinationFiles="@(EnvironmentAsset-&gt;'$(OutDir)Asset\Skybox\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
   </Target>

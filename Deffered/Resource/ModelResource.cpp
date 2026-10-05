@@ -6,7 +6,7 @@ bool MODEL_RESOURCE::load(ID3D12Device* device, ID3D12GraphicsCommandList* list,
 {
     if (!_mesh.load(path)) { error = _mesh.get_error(); return false; }
     _geometry = std::make_shared<MESH_RESOURCE>();
-    if (!_geometry->initialize(device, _mesh))
+    if (!_geometry->initialize(device, list, _mesh))
     {
         error = "Could not create model geometry buffers.";
         return false;

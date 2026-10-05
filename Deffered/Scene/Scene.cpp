@@ -49,6 +49,26 @@ UINT64 SCENE::add(const std::shared_ptr<MODEL_RESOURCE>& model)
     return _selected_id;
 }
 
+void SCENE::set_benchmark_objects(std::vector<SCENE_OBJECT> objects)
+{
+    if (objects.empty() || objects.size() > benchmark_object_limit)
+        throw std::runtime_error("Benchmark object limit is 50000.");
+    size_t primitive_count = 0;
+    UINT64 id = 1;
+    for (auto& object : objects)
+    {
+        if (!object.model) throw std::runtime_error("Missing benchmark model.");
+        primitive_count += object.model->get_mesh().get_primitives().size();
+        if (primitive_count > 65536) throw std::runtime_error("Benchmark primitive-instance limit is 65536.");
+        object.id = id++;
+        object.isvisible = true;
+        object.materials.resize(object.model->get_materials().size());
+    }
+    _objects.swap(objects);
+    _next_id = id;
+    _selected_id = 0;
+}
+
 bool SCENE::replace(UINT64 id, const std::shared_ptr<MODEL_RESOURCE>& model)
 {
     auto* object = find(id);

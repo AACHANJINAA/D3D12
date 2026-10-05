@@ -85,12 +85,18 @@
     <None Include="Renderer\Shader\Mesh.hlsl">
       <Filter>리소스 파일</Filter>
     </None>
+    <None Include="Renderer\Shader\InstancedMesh.hlsl">
+      <Filter>리소스 파일</Filter>
+    </None>
     <None Include="Renderer\Shader\GBuffer.hlsl">
       <Filter>리소스 파일</Filter>
     </None>
     <None Include="Renderer\Shader\DeferredLight.hlsl">
       <Filter>리소스 파일</Filter>
     </None>
+      <None Include="Renderer\Shader\GBufferDebug.hlsli">
+        <Filter>리소스 파일</Filter>
+      </None>
     <None Include="Renderer\Shader\PbrCommon.hlsli">
       <Filter>리소스 파일</Filter>
     </None>

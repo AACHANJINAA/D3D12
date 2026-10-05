@@ -12,6 +12,7 @@
 #include "../Resource/Texture.h"
 #include "../UI/ViewerUi.h"
 #include "../../Benchmark/BenchmarkScene.h"
+#include "../../Benchmark/FrameProfiler.h"
 
 class RENDERER
 {
@@ -74,6 +75,8 @@ private:
     VIEWER_UI _ui;
     VIEWER_SETTINGS _viewer_settings;
     BENCHMARK_SCENE _benchmark;
+    BENCHMARK_LIGHT_BUFFER _benchmark_lights;
+    FRAME_PROFILER _profiler;
     ComPtr<ID3D12Fence> _fence;
     UINT64 _fence_value = 0;
     HANDLE _fence_event = nullptr;

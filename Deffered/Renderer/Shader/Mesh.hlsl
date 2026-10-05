@@ -21,6 +21,7 @@ struct VERTEX_OUTPUT
     float3 normal : NORMAL;
     float4 tangent : TANGENT;
     float2 uv : TEXCOORD;
+    nointerpolation float selection : TEXCOORD1;
 };
 
 VERTEX_OUTPUT VS_Mesh(VERTEX_INPUT input)
@@ -32,6 +33,7 @@ VERTEX_OUTPUT VS_Mesh(VERTEX_INPUT input)
     output.tangent = float4(normalize(mul(input.tangent.xyz,
         (float3x3)world_transform)), input.tangent.w * tangent_sign);
     output.uv = input.uv;
+    output.selection = selection_mask;
     return output;
 }
 

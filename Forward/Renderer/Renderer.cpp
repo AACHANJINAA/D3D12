@@ -58,7 +58,7 @@ bool RENDERER::initialize(HINSTANCE instance, int show_command)
     if (!create_command_objects()) return report_initialization_failure(L"create_command_objects");
     if (!create_swap_chain()) return report_initialization_failure(L"create_swap_chain");
     if (!create_render_targets()) return report_initialization_failure(L"create_render_targets");
-    if (!_forward_pass.initialize(_device.Get()))
+    if (!_forward_pass.initialize(_device.Get(), !_benchmark.isenabled, _benchmark.isenabled && _benchmark.ismatched))
         return report_initialization_failure(L"pip_forward_pass.initialize");
     if (!_skybox_render_pass.initialize(_device.Get()))
         return report_initialization_failure(L"skybox_render_pass.initialize");
@@ -69,15 +69,26 @@ bool RENDERER::initialize(HINSTANCE instance, int show_command)
     if (!create_texture()) return report_initialization_failure(L"create_texture");
     if (!_ui.initialize(_window, _device.Get(), _command_queue.Get(), frame_count))
         return report_initialization_failure(L"viewer_ui.initialize");
+    if (!_benchmark_lights.initialize(_device.Get(), _benchmark.light_data)) return report_initialization_failure(L"benchmark lights");
     if (_benchmark.isenabled)
     {
-        for (const auto& object : _benchmark.objects)
-            if (!import_model(object)) return false;
+        if (!_benchmark.populate(_scene, [&](const VIEWER_REQUEST& request) {
+            return import_model(request) ? _resources.find_model(request.path) : nullptr;
+        }, benchmark_error))
+        {
+            MessageBoxA(_window, benchmark_error.c_str(), "Benchmark import", MB_OK | MB_ICONERROR);
+            return false;
+        }
         _scene.select(0);
+        _benchmark.apply_workload(_scene);
         _benchmark.apply(_viewer_settings);
         CAMERA_MANAGER::get_instance().set_target_bounds({}, 1.0f);
         CAMERA_MANAGER::get_instance().set_pose(_benchmark.camera_position, _benchmark.camera_target);
     }
+    _benchmark.ui.renderer = "Forward";
+    if (!_profiler.initialize(_device.Get(), _command_queue.Get(), _factory.Get(), _benchmark, "Forward"))
+        return report_initialization_failure(L"benchmark profiler initialization/output exists");
+    SetWindowTextW(_window, _benchmark.isenabled ? L"Forward | Comparison" : L"Forward | S.T.L Viewer");
     return true;
 }
 
@@ -97,11 +108,17 @@ int RENDERER::run()
         }
         if (IsIconic(_window))
         {
+            if (_benchmark.isautomated) return EXIT_FAILURE;
             WaitMessage();
             continue;
         }
         render_frame();
         if (_is_render_failed) return EXIT_FAILURE;
+        if (_profiler.is_finished())
+        {
+            if (!wait_for_gpu() || !_profiler.finish(_fence.Get(), true)) return EXIT_FAILURE;
+            if (!_benchmark.iskeep_open) return EXIT_SUCCESS;
+        }
     }
 }
 
@@ -529,7 +546,7 @@ bool RENDERER::create_texture()
 
 void RENDERER::render_frame()
 {
-    // Interactive UI rewrites a shared preview heap. Benchmark mode never draws it.
+    // Only interactive panels rewrite previews; the benchmark draws an immutable font SRV.
     if (!_benchmark.isenabled && !wait_for_gpu()) { _is_render_failed = true; return; }
     if (!_benchmark.isenabled) process_scene_request();
     if (_is_render_failed) return;
@@ -572,6 +589,23 @@ void RENDERER::render_frame()
     else CAMERA_MANAGER::get_instance().set_target_bounds({}, 1.0f);
     CAMERA_MANAGER::get_instance().update(delta_time);
     }
+    else
+    {
+        const auto& latest = _profiler.latest();
+        _profiler.update_ui(_benchmark.ui);
+        _benchmark.ui.draws = latest.draws;
+        _benchmark.ui.prepare_ms = latest.prepare_ms;
+        _benchmark.ui.record_ms = latest.record_ms;
+        _benchmark.ui.gpu_ms = latest.gpu_ms;
+        _benchmark.ui.mesh_ms = latest.mesh_gpu_ms;
+        _benchmark.ui.lighting_ms = latest.lighting_gpu_ms;
+        const int previous_workload = _benchmark.ui.workload;
+        _ui.begin_frame(_viewer_settings, _scene, {}, false, &_benchmark.ui);
+        if (previous_workload != _benchmark.ui.workload) _benchmark.apply_workload(_scene);
+        _viewer_settings.mode = static_cast<VIEW_MODE>(_benchmark.ui.view);
+        _benchmark.isinstancing = _benchmark.ui.isinstancing;
+        _benchmark.light_data.count = static_cast<UINT>(_benchmark.ui.light_count);
+    }
     float scene_distance = 1.0f;
     for (const auto& object : _scene.get_objects())
         if (object.isvisible) scene_distance = (std::max)(scene_distance,
@@ -583,6 +617,11 @@ void RENDERER::render_frame()
     const float client_height = static_cast<float>(client_rect.bottom - client_rect.top);
     if (client_width <= 0.0f || client_height <= 0.0f) return;
     const auto buffer_description = _render_targets[0]->GetDesc();
+    if (_benchmark.isautomated && (client_width != _benchmark.width || client_height != _benchmark.height))
+    {
+        _is_render_failed = true;
+        return;
+    }
     if (buffer_description.Width != static_cast<UINT64>(client_width) ||
         buffer_description.Height != static_cast<UINT>(client_height))
     {
@@ -594,16 +633,36 @@ void RENDERER::render_frame()
         }
     }
     const float aspect_ratio = client_width / client_height;
+    const UINT profile_slot = _frame_index;
+    if (!_profiler.begin(profile_slot, _fence.Get())) { _is_render_failed = true; return; }
+    FRAME_MEASUREMENTS measurement;
+    const double prepare_start = FRAME_PROFILER::now();
+    if (!_benchmark_lights.update(profile_slot, _benchmark.light_data)) { _is_render_failed = true; return; }
     if (!_forward_pass.update(_device.Get(), _frame_index, _scene, _viewer_settings,
         CAMERA_MANAGER::get_instance().get_view(), CAMERA_MANAGER::get_instance().get_projection(aspect_ratio),
         CAMERA_MANAGER::get_instance().get_position(), _skybox_render_pass.get_cubemap(),
-        _material_textures.get_specular_cubemap(), _material_textures.get_brdf_lut()))
+        _material_textures.get_specular_cubemap(), _material_textures.get_brdf_lut(),
+        !_benchmark.isenabled || _benchmark.isinstancing, _benchmark.isenabled && _benchmark.ui.iscached))
     {
         _is_render_failed = true;
         report_initialization_failure(L"pip_forward_pass.update");
         return;
     }
+    if (!_benchmark.report_submission("Forward", _scene, _forward_pass.get_draw_count(_frame_index),
+        _forward_pass.get_instance_count(_frame_index)))
+    {
+        _is_render_failed = true;
+        report_initialization_failure(L"benchmark submission count/report");
+        return;
+    }
 
+    measurement.draws = _forward_pass.get_draw_count(_frame_index);
+    measurement.srv_writes = _forward_pass.get_srv_writes(_frame_index);
+    measurement.instances = _forward_pass.get_instance_count(_frame_index);
+    measurement.triangles = _scene.triangle_count();
+    measurement.lights = _benchmark.light_data.count;
+    measurement.prepare_ms = (FRAME_PROFILER::now() - prepare_start) * 1000;
+    const double record_start = FRAME_PROFILER::now();
     if (FAILED(_command_allocator->Reset()) ||
         FAILED(_command_list->Reset(_command_allocator.Get(), nullptr)))
     {
@@ -612,6 +671,7 @@ void RENDERER::render_frame()
         return;
     }
     
+    _profiler.stamp(_command_list.Get(), profile_slot, 0);
     const CD3DX12_RESOURCE_BARRIER to_render_target = CD3DX12_RESOURCE_BARRIER::transition(
         _render_targets[_frame_index].Get(),
         D3D12_RESOURCE_STATE_PRESENT,
@@ -630,32 +690,51 @@ void RENDERER::render_frame()
     _command_list->RSSetScissorRects(1, &scissor_rect);
 
     _command_list->OMSetRenderTargets(1, &render_target_handle, FALSE, nullptr);
+    _profiler.stamp(_command_list.Get(), profile_slot, 4);
     if (_viewer_settings.is_skybox_visible)
         _skybox_render_pass.render(_command_list.Get(), _viewer_settings.exposure);
+    _profiler.stamp(_command_list.Get(), profile_slot, 5);
+    _profiler.stamp(_command_list.Get(), profile_slot, 6);
+    _profiler.stamp(_command_list.Get(), profile_slot, 7);
+    _profiler.stamp(_command_list.Get(), profile_slot, 2);
     _command_list->OMSetRenderTargets(1, &render_target_handle, FALSE, &depth_stencil_handle);
     _command_list->ClearDepthStencilView(depth_stencil_handle, D3D12_CLEAR_FLAG_DEPTH, 1, 0, 0, nullptr);
-    _forward_pass.render(_command_list.Get(), _frame_index, _viewer_settings.mode == VIEW_MODE::wireframe);
-    if (!_benchmark.isenabled) _ui.render(_command_list.Get());
+    _forward_pass.render(_command_list.Get(), _frame_index, _viewer_settings.mode == VIEW_MODE::wireframe,
+        _benchmark_lights.address(_frame_index));
+    _profiler.stamp(_command_list.Get(), profile_slot, 3);
+    _profiler.stamp(_command_list.Get(), profile_slot, 8);
+    _ui.render(_command_list.Get());
+    _profiler.stamp(_command_list.Get(), profile_slot, 9);
     const CD3DX12_RESOURCE_BARRIER to_present = CD3DX12_RESOURCE_BARRIER::transition(
         _render_targets[_frame_index].Get(),
         D3D12_RESOURCE_STATE_RENDER_TARGET,
         D3D12_RESOURCE_STATE_PRESENT);
     _command_list->ResourceBarrier(1, &to_present);
+    _profiler.stamp(_command_list.Get(), profile_slot, 1);
+    _profiler.resolve(_command_list.Get(), profile_slot);
     if (FAILED(_command_list->Close()))
     {
         _is_render_failed = true;
         report_initialization_failure(L"render_frame.close");
         return;
     }
+    measurement.record_ms = (FRAME_PROFILER::now() - record_start) * 1000;
     ID3D12CommandList* command_lists[] = { _command_list.Get() };
+    const double submit_start = FRAME_PROFILER::now();
     _command_queue->ExecuteCommandLists(1, command_lists);
+    measurement.submit_ms = (FRAME_PROFILER::now() - submit_start) * 1000;
+    const double present_start = FRAME_PROFILER::now();
     if (FAILED(_swap_chain->Present(_benchmark.isenabled ? _benchmark.vsync : 1, 0)))
     {
         _is_render_failed = true;
         report_initialization_failure(L"render_frame.present");
         return;
     }
+    measurement.present_ms = (FRAME_PROFILER::now() - present_start) * 1000;
+    const double sync_start = FRAME_PROFILER::now();
     move_to_next_frame();
+    measurement.sync_ms = (FRAME_PROFILER::now() - sync_start) * 1000;
+    if (!_is_render_failed) _profiler.submit(profile_slot, _frame_fences[profile_slot], measurement);
 }
 
 void RENDERER::move_to_next_frame()
@@ -694,6 +773,7 @@ bool RENDERER::wait_for_gpu()
 void RENDERER::shutdown()
 {
     wait_for_gpu();
+    _profiler.finish(_fence.Get(), false);
     _ui.shutdown();
     if (_fence_event != nullptr)
     {
@@ -743,9 +823,10 @@ LRESULT CALLBACK RENDERER::window_procedure(HWND window, UINT message, WPARAM wp
         return TRUE;
     }
     auto* renderer = reinterpret_cast<RENDERER*>(GetWindowLongPtrW(window, GWLP_USERDATA));
-    const bool ishandled = renderer && renderer->_ui.process_message(window, message, wparam, lparam);
-    INPUT_MANAGER::get_instance().process_message(message, wparam,
-        renderer && renderer->_ui.wants_mouse());
+    const bool ishandled = renderer &&
+        renderer->_ui.process_message(window, message, wparam, lparam);
+    if (renderer && !renderer->_benchmark.isenabled)
+        INPUT_MANAGER::get_instance().process_message(message, wparam, renderer->_ui.wants_mouse());
     if (message == WM_GETMINMAXINFO)
     {
         auto* limits = reinterpret_cast<MINMAXINFO*>(lparam);

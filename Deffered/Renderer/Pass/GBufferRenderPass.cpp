@@ -7,7 +7,7 @@ bool GBUFFER_RENDER_PASS::initialize(ID3D12Device* device)
 {
     ComPtr<ID3DBlob> vertex_shader;
     ComPtr<ID3DBlob> pixel_shader;
-    if (!SHADER::get_instance().compile_shader(L"Mesh.hlsl", "VS_Mesh", "vs_5_0", vertex_shader) ||
+    if (!SHADER::get_instance().compile_shader(L"InstancedMesh.hlsl", "VS_Instanced", "vs_5_1", vertex_shader) ||
         !SHADER::get_instance().compile_shader(L"GBuffer.hlsl", "PS_GBuffer", "ps_5_0", pixel_shader))
     {
         return false;
@@ -21,12 +21,15 @@ bool GBUFFER_RENDER_PASS::initialize(ID3D12Device* device)
     texture_range.BaseShaderRegister = 0;
     texture_range.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
 
-    D3D12_ROOT_PARAMETER root_parameters[2]{};
+    D3D12_ROOT_PARAMETER root_parameters[3]{};
     root_parameters[0] = constant_buffer_parameter;
     root_parameters[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
     root_parameters[1].DescriptorTable.NumDescriptorRanges = 1;
     root_parameters[1].DescriptorTable.pDescriptorRanges = &texture_range;
     root_parameters[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+    root_parameters[2].ParameterType = D3D12_ROOT_PARAMETER_TYPE_SRV;
+    root_parameters[2].Descriptor.ShaderRegister = 8;
+    root_parameters[2].ShaderVisibility = D3D12_SHADER_VISIBILITY_VERTEX;
 
     D3D12_STATIC_SAMPLER_DESC sampler{};
     sampler.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
@@ -41,7 +44,7 @@ bool GBUFFER_RENDER_PASS::initialize(ID3D12Device* device)
     sampler.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
 
     const D3D12_ROOT_SIGNATURE_DESC root_description{
-        2, root_parameters, 1, &sampler,
+        3, root_parameters, 1, &sampler,
         D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT };
     ComPtr<ID3DBlob> serialized_root_signature;
     if (FAILED(D3D12SerializeRootSignature(&root_description, D3D_ROOT_SIGNATURE_VERSION_1,
@@ -83,17 +86,24 @@ bool GBUFFER_RENDER_PASS::initialize(ID3D12Device* device)
     if (FAILED(device->CreateGraphicsPipelineState(&description, IID_PPV_ARGS(&_pipeline))))
         return false;
     description.RasterizerState.FillMode = D3D12_FILL_MODE_WIREFRAME;
-    return SUCCEEDED(device->CreateGraphicsPipelineState(
-        &description, IID_PPV_ARGS(&_wireframe_pipeline)));
+    if (FAILED(device->CreateGraphicsPipelineState(&description, IID_PPV_ARGS(&_wireframe_pipeline)))) return false;
+    if (!SHADER::get_instance().compile_shader(L"GBuffer.hlsl", "PS_GBufferCompact", "ps_5_0", pixel_shader)) return false;
+    description.PS = {pixel_shader->GetBufferPointer(), pixel_shader->GetBufferSize()};
+    for (UINT index = 0; index < target_count; ++index) description.RTVFormats[index] = compact_formats[index];
+    if (FAILED(device->CreateGraphicsPipelineState(&description, IID_PPV_ARGS(&_compact_wireframe)))) return false;
+    description.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
+    return SUCCEEDED(device->CreateGraphicsPipelineState(&description, IID_PPV_ARGS(&_compact_pipeline)));
 }
 
 ID3D12RootSignature* GBUFFER_RENDER_PASS::get_root_signature() const { return _root_signature.Get(); }
 ID3D12PipelineState* GBUFFER_RENDER_PASS::get_pipeline() const { return _pipeline.Get(); }
 
 
-bool GBUFFER_RENDER_PASS::resize(ID3D12Device* device, UINT width, UINT height)
+bool GBUFFER_RENDER_PASS::resize(ID3D12Device* device, UINT width, UINT height, bool iscompact)
 {
     release_targets();
+    _iscompact = iscompact;
+    const auto* active_formats = iscompact ? compact_formats : formats;
     CD3DX12_DESCRIPTOR_HEAP_DESC heap(target_count, D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
     if (FAILED(device->CreateDescriptorHeap(&heap, IID_PPV_ARGS(&_rtv_heap))))
         return false;
@@ -103,9 +113,9 @@ bool GBUFFER_RENDER_PASS::resize(ID3D12Device* device, UINT width, UINT height)
     for (UINT index = 0; index < target_count; ++index)
     {
         const auto description = CD3DX12_RESOURCE_DESC::texture_2d(
-            formats[index], width, height, D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET);
+            active_formats[index], width, height, D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET);
         D3D12_CLEAR_VALUE clear{};
-        clear.Format = formats[index];
+        clear.Format = active_formats[index];
         if (FAILED(device->CreateCommittedResource(&properties, D3D12_HEAP_FLAG_NONE,
             &description, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
             &clear, IID_PPV_ARGS(&_targets[index]))))
@@ -139,7 +149,8 @@ void GBUFFER_RENDER_PASS::render(ID3D12GraphicsCommandList* list,
         handle.ptr += _descriptor_size;
     }
     list->ClearDepthStencilView(depth, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
-    list->SetPipelineState(iswireframe ? _wireframe_pipeline.Get() : _pipeline.Get());
+    list->SetPipelineState(_iscompact ? (iswireframe ? _compact_wireframe.Get() : _compact_pipeline.Get()) :
+        (iswireframe ? _wireframe_pipeline.Get() : _pipeline.Get()));
     list->SetGraphicsRootSignature(_root_signature.Get());
     list->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     for (const auto& draw : draws)
@@ -149,7 +160,8 @@ void GBUFFER_RENDER_PASS::render(ID3D12GraphicsCommandList* list,
         list->SetGraphicsRootDescriptorTable(1, draw.materials->GetGPUDescriptorHandleForHeapStart());
         list->IASetVertexBuffers(0, 1, &draw.vertices);
         list->IASetIndexBuffer(&draw.indices);
-        list->DrawIndexedInstanced(draw.index_count, 1, draw.first_index, 0, 0);
+        list->SetGraphicsRootShaderResourceView(2, draw.instances);
+        list->DrawIndexedInstanced(draw.index_count, draw.instance_count, draw.first_index, 0, 0);
     }
     list->OMSetRenderTargets(0, nullptr, FALSE, nullptr);
     for (UINT index = 0; index < target_count; ++index)

@@ -14,7 +14,8 @@ GBUFFER_OUTPUT PS_GBuffer(
     float3 world_position : POSITION1,
     float3 normal : NORMAL,
     float4 tangent : TANGENT,
-    float2 uv : TEXCOORD)
+    float2 uv : TEXCOORD,
+    nointerpolation float instance_selection : TEXCOORD1)
 {
     GBUFFER_OUTPUT output;
     float4 albedo = albedo_texture.Sample(texture_sampler, uv) * base_color_factor;
@@ -37,7 +38,17 @@ GBUFFER_OUTPUT PS_GBuffer(
     output.emissive = float4(emissive_texture.Sample(texture_sampler, uv).rgb * emissive_factor, 1.0f);
     output.world_position = float4(world_position, 1.0f);
     output.albedo = albedo;
-    output.normal = float4(surface_normal * 0.5f + 0.5f, selection_mask);
+    output.normal = float4(surface_normal * 0.5f + 0.5f, instance_selection);
     output.material = float4(metallic_value, roughness_value, ambient_occlusion, 1.0f);
+    return output;
+}
+
+GBUFFER_OUTPUT PS_GBufferCompact(
+    float4 position : SV_POSITION, float3 world_position : POSITION1,
+    float3 normal : NORMAL, float4 tangent : TANGENT, float2 uv : TEXCOORD,
+    nointerpolation float instance_selection : TEXCOORD1)
+{
+    GBUFFER_OUTPUT output = PS_GBuffer(position, world_position, normal, tangent, uv, instance_selection);
+    output.world_position = float4(position.z, 0, 0, 0);
     return output;
 }

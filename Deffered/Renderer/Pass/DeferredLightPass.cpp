@@ -16,12 +16,13 @@ bool DEFERRED_LIGHT_PASS::initialize(ID3D12Device* device)
     range.RangeType = D3D12_DESCRIPTOR_RANGE_TYPE_SRV;
     range.NumDescriptors = GBUFFER_RENDER_PASS::target_count + 3;
     range.OffsetInDescriptorsFromTableStart = D3D12_DESCRIPTOR_RANGE_OFFSET_APPEND;
-    D3D12_ROOT_PARAMETER parameters[2]{};
+    D3D12_ROOT_PARAMETER parameters[3]{};
     parameters[0] = CD3DX12_ROOT_PARAMETER(
         D3D12_ROOT_PARAMETER_TYPE_CBV, 0, D3D12_SHADER_VISIBILITY_PIXEL);
     parameters[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_DESCRIPTOR_TABLE;
     parameters[1].DescriptorTable = { 1, &range };
     parameters[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
+    parameters[2] = CD3DX12_ROOT_PARAMETER(D3D12_ROOT_PARAMETER_TYPE_CBV, 6, D3D12_SHADER_VISIBILITY_PIXEL);
     D3D12_STATIC_SAMPLER_DESC sampler{};
     sampler.Filter = D3D12_FILTER_MIN_MAG_MIP_LINEAR;
     sampler.AddressU = sampler.AddressV = sampler.AddressW = D3D12_TEXTURE_ADDRESS_MODE_CLAMP;
@@ -29,7 +30,7 @@ bool DEFERRED_LIGHT_PASS::initialize(ID3D12Device* device)
     sampler.ComparisonFunc = D3D12_COMPARISON_FUNC_ALWAYS;
     sampler.MaxLOD = D3D12_FLOAT32_MAX;
     sampler.ShaderVisibility = D3D12_SHADER_VISIBILITY_PIXEL;
-    const D3D12_ROOT_SIGNATURE_DESC root{ 2, parameters, 1, &sampler,
+    const D3D12_ROOT_SIGNATURE_DESC root{ 3, parameters, 1, &sampler,
         D3D12_ROOT_SIGNATURE_FLAG_NONE };
     ComPtr<ID3DBlob> serialized;
     ComPtr<ID3DBlob> error;
@@ -103,11 +104,12 @@ bool DEFERRED_LIGHT_PASS::set_resources(ID3D12Device* device,
 }
 
 void DEFERRED_LIGHT_PASS::render(ID3D12GraphicsCommandList* list,
-    D3D12_GPU_VIRTUAL_ADDRESS constants) const
+    D3D12_GPU_VIRTUAL_ADDRESS constants, D3D12_GPU_VIRTUAL_ADDRESS lights) const
 {
     list->SetPipelineState(_pipeline.Get());
     list->SetGraphicsRootSignature(_root_signature.Get());
     list->SetGraphicsRootConstantBufferView(0, constants);
+    list->SetGraphicsRootConstantBufferView(2, lights);
     ID3D12DescriptorHeap* heaps[] = { _srv_heap.Get() };
     list->SetDescriptorHeaps(1, heaps);
     list->SetGraphicsRootDescriptorTable(1, _srv_heap->GetGPUDescriptorHandleForHeapStart());

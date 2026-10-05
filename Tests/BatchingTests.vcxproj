@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64"><Configuration>Debug</Configuration><Platform>x64</Platform></ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{DB82FC6A-42E9-4F4C-B345-BBE7C170AA17}</ProjectGuid>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <RendererUnderTest Condition="'$(RendererUnderTest)'==''">Deffered</RendererUnderTest>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Label="Configuration"><ConfigurationType>Application</ConfigurationType><PlatformToolset>v145</PlatformToolset><UseDebugLibraries>true</UseDebugLibraries></PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <PropertyGroup>
+    <OutDir>$(ProjectDir)bin\$(RendererUnderTest)\</OutDir><IntDir>$(ProjectDir)obj\$(RendererUnderTest)\</IntDir>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <ClCompile><LanguageStandard>stdcpp20</LanguageStandard><PrecompiledHeader>NotUsing</PrecompiledHeader><RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary><ExceptionHandling>Sync</ExceptionHandling><AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions><PreprocessorDefinitions>_DEBUG;UNICODE;_UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions></ClCompile>
+    <Link><SubSystem>Console</SubSystem><AdditionalDependencies>d3d12.lib;dxgi.lib;d3dcompiler.lib;windowscodecs.lib;windowsapp.lib;%(AdditionalDependencies)</AdditionalDependencies></Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(RendererUnderTest)'=='Forward'"><ClCompile><PreprocessorDefinitions>TEST_FORWARD;%(PreprocessorDefinitions)</PreprocessorDefinitions></ClCompile></ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="BatchingTests.cpp" />
+    <ClCompile Include="..\$(RendererUnderTest)\Resource\GltfMesh.cpp" />
+    <ClCompile Include="..\$(RendererUnderTest)\Resource\MeshResource.cpp" />
+    <ClCompile Include="..\$(RendererUnderTest)\Resource\ModelResource.cpp" />
+    <ClCompile Include="..\$(RendererUnderTest)\Resource\Texture.cpp" />
+    <ClCompile Include="..\$(RendererUnderTest)\Scene\Scene.cpp" />
+    <ClCompile Include="..\$(RendererUnderTest)\Renderer\Shader\Shader.cpp" />
+    <ClCompile Include="..\Deffered\Renderer\SceneRenderData.cpp" Condition="'$(RendererUnderTest)'=='Deffered'" />
+    <ClCompile Include="..\Deffered\Renderer\Pass\GBufferRenderPass.cpp" Condition="'$(RendererUnderTest)'=='Deffered'" />
+    <ClCompile Include="..\Forward\Renderer\Pass\PipForwardPass.cpp" Condition="'$(RendererUnderTest)'=='Forward'" />
+    <RuntimeShader Include="..\$(RendererUnderTest)\Renderer\Shader\**\*.hlsl;..\$(RendererUnderTest)\Renderer\Shader\**\*.hlsli" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <Target Name="CopyTestShaders" AfterTargets="Build">
+    <Copy SourceFiles="@(RuntimeShader)" DestinationFiles="@(RuntimeShader->'$(OutDir)Renderer\Shader\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="$(ProjectDir)..\Benchmark\Shader\MatchedLighting.hlsli" DestinationFiles="$(OutDir)Renderer\Shader\Benchmark\MatchedLighting.hlsli" SkipUnchangedFiles="true" />
+  </Target>
+</Project>

@@ -4,7 +4,7 @@
 
 enum class VIEW_MODE : UINT
 {
-    lit, base_color, normal, metallic, roughness, ao, emissive, depth, wireframe
+    lit, base_color, normal, metallic, roughness, ao, emissive, depth, wireframe, gbuffer
 };
 
 struct VIEWER_SETTINGS
@@ -12,6 +12,7 @@ struct VIEWER_SETTINGS
     VIEW_MODE mode = VIEW_MODE::lit;
     bool is_skybox_visible = true;
     bool is_light_orbiting = false;
+    bool iscompact_gbuffer = true;
     float exposure = 0.0f;
     float environment_intensity = 1.0f;
     float depth_range = 20.0f;
