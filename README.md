@@ -288,6 +288,9 @@ Tiled/Clustered Deferred나 완성된 상용 게임 엔진을 구현한 것으�
 
 ## 참고와 설계 기록
 
+공부용 상세 문서: [Forward와 Deferred 렌더링 학습 노트](Base_MD/docs/FORWARD_DEFERRED_STUDY.md).
+기초 용어부터 픽셀 처리 흐름, G-buffer, 깊이 복원, 성능·화질 차이와 뷰어 실습까지 설명합니다.
+
 PBRT는 반사 모델과 빛의 수송을 이해하기 위한 참고 자료입니다.
 실시간 Deferred 패스 구성이나 Split-Sum IBL 전체를 PBRT에서 그대로 이식했다는 의미는 아닙니다.
 
