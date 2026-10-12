@@ -1,6 +1,6 @@
 #if defined(TEST_FORWARD)
-#include "../Forward/UI/ViewerPanels.h"
-#include "../Forward/Renderer/Pass/PipForwardPass.h"
+#include "../Deffered/UI/ViewerPanels.h"
+#include "../Deffered/Renderer/Pass/PipForwardPass.h"
 #else
 #include "../Deffered/UI/ViewerPanels.h"
 #include "../Deffered/Renderer/SceneRenderData.h"

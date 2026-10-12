@@ -1069,7 +1069,7 @@ Deferred의 필수 조건도 아니고 Forward에서는 사용할 수 없는 것
 | 6 | [GBufferRenderPass.cpp](../../Deffered/Renderer/Pass/GBufferRenderPass.cpp) | MRT, PSO, Clear, 상태 전환 |
 | 7 | [DeferredLightPass.cpp](../../Deffered/Renderer/Pass/DeferredLightPass.cpp) | SRV Heap, Root Signature, 전체 화면 Draw |
 | 8 | [Renderer.cpp](../../Deffered/Renderer/Renderer.cpp) | 패스 실행 순서와 GPU 완료 관리 |
-| 비교 | [MatchedForward.hlsl](../../Forward/Renderer/Shader/Pip/MatchedForward.hlsl) | 같은 종류의 표면 정보를 PS 안에서 조명에 바로 사용 |
+| 비교 | [MatchedForward.hlsl](../../Deffered/Renderer/Shader/Pip/MatchedForward.hlsl) | 같은 종류의 표면 정보를 PS 안에서 조명에 바로 사용 |
 | 비교 | [MatchedLighting.hlsli](../../Benchmark/Shader/MatchedLighting.hlsli) | 비교 경로 양쪽에서 공유하는 광원 계산 |
 
 공부할 때 아래 한 줄을 손으로 추적해 봅니다.

@@ -13,10 +13,21 @@ struct VIEWER_SETTINGS
     bool is_skybox_visible = true;
     bool is_light_orbiting = false;
     bool iscompact_gbuffer = true;
+    // Left of the divider: Forward (S.T.L PIP pass). Right: Deferred.
+    bool issplit_view = true;
+    float split_ratio = 0.5f;
     float exposure = 0.0f;
     float environment_intensity = 1.0f;
     float depth_range = 20.0f;
     MATH::VECTOR3 light_direction{ -0.4f, -0.8f, -0.5f };
     MATH::VECTOR3 light_color{ 1.0f, 0.95f, 0.85f };
     float light_intensity = 9.0f;
+    // The PIP Forward shader uses a different light scale than the Deferred PBR shader.
+    float forward_light_intensity = 0.8f;
+
+    // Forward has no G-buffer, so only lit/wireframe can be compared side by side.
+    bool is_split_active() const
+    {
+        return issplit_view && (mode == VIEW_MODE::lit || mode == VIEW_MODE::wireframe);
+    }
 };

@@ -13,6 +13,7 @@ public:
     bool isenabled = false;
     bool isinstancing = true;
     bool isautomated = false, ismatched = true, iskeep_open = false;
+    bool isforward = false;
     double warmup_seconds = 10, measurement_seconds = 0;
     std::filesystem::path output_directory;
     std::string run_id;
@@ -33,11 +34,15 @@ public:
         std::filesystem::path path;
         bool isrequested = false;
         for (int index = 1; index < count; ++index)
+        {
             if (std::wstring(arguments[index]) == L"--benchmark")
             {
                 isrequested = true;
                 if (index + 1 < count) path = arguments[++index];
             }
+            // Runs the S.T.L Forward path alone (replaces the former Forward.exe).
+            else if (std::wstring(arguments[index]) == L"--forward") isforward = true;
+        }
         LocalFree(arguments);
         if (!isrequested) return true;
         return load_file(path, error);

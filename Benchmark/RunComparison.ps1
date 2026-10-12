@@ -19,10 +19,11 @@ if ($Smoke) {
     $Repeats = 1; $Warmup = 0.2; $Seconds = 0.5
 }
 $executables = @{}
-foreach ($renderer in @('Forward','Deffered')) {
-    $executables[$renderer] = Join-Path $root "$renderer/bin/x64/$Configuration/$renderer.exe"
-    if (!(Test-Path -LiteralPath $executables[$renderer])) { throw "Build $Configuration first: $renderer" }
-}
+# Forward and Deffered are the same executable; '--forward' selects the Forward-only path.
+$executable = Join-Path $root "Deffered/bin/x64/$Configuration/Deffered.exe"
+if (!(Test-Path -LiteralPath $executable)) { throw "Build $Configuration first: Deffered" }
+foreach ($renderer in @('Forward','Deffered')) { $executables[$renderer] = $executable }
+$rendererArguments = @{ Forward = @('--forward'); Deffered = @() }
 $id = (Get-Date -Format 'yyyyMMdd-HHmmss') + '-' + [guid]::NewGuid().ToString('N').Substring(0,8)
 $output = Join-Path $PSScriptRoot "results/$id"
 New-Item -ItemType Directory -Path $output | Out-Null
@@ -36,7 +37,7 @@ $manifest = [ordered]@{
     git_commit = (& git -C $root rev-parse HEAD); git_status = @(& git -C $root status --short)
     hashes = @(); runs = @()
 }
-foreach ($renderer in @('Forward','Deffered')) {
+foreach ($renderer in @('Deffered')) {
     $files = @((Get-Item -LiteralPath $executables[$renderer]))
     $files += @(Get-ChildItem -LiteralPath (Join-Path (Split-Path $executables[$renderer]) 'Renderer/Shader') -Recurse -File)
     $files += @(Get-ChildItem -LiteralPath (Join-Path (Split-Path $executables[$renderer]) 'Asset/Skybox') -Recurse -File)
@@ -79,7 +80,7 @@ foreach ($count in $ObjectCounts) {
             $entry = [ordered]@{ run_id=$run; renderer=$renderer; exit_code=$null; status='failed'; error='' }
             $process = $null
             try {
-                $process = Start-Process -FilePath $executables[$renderer] -WorkingDirectory $root -WindowStyle Hidden -ArgumentList @('--benchmark',('"' + $json + '"')) -PassThru
+                $process = Start-Process -FilePath $executables[$renderer] -WorkingDirectory $root -WindowStyle Hidden -ArgumentList (@('--benchmark',('"' + $json + '"')) + $rendererArguments[$renderer]) -PassThru
                 if (!$process.WaitForExit([int](($Warmup+$Seconds+120)*1000))) {
                     Stop-Process -Id $process.Id -Force
                     $process.WaitForExit()

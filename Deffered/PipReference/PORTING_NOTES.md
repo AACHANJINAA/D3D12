@@ -45,12 +45,15 @@
 
 ## 비교 실행
 
-루트 `D3D12.slnx`에서 Forward와 Deffered를 각각 Release x64로 빌드한다.
-출력은 `Forward/bin/x64/Release/Forward.exe`, `Deffered/bin/x64/Release/Deffered.exe`다.
+> 2026-10-12: 별도 `Forward` 프로젝트는 삭제하고 `Deffered` 실행 파일로 통합했다.
+> 일반 뷰어는 좌측 Forward / 우측 Deferred 분할 화면이며, `--forward` 인자는 기존 Forward.exe와 같은 Forward 단독 벤치마크 경로를 실행한다.
+
+루트 `D3D12.slnx`에서 Deffered를 Release x64로 빌드한다.
+출력은 `Deffered/bin/x64/Release/Deffered.exe` 하나다.
 아래 명령은 저장소 루트에서 사용자가 실행한다. 동시에 실행하지 않는다.
 
 ```powershell
-& .\Forward\bin\x64\Release\Forward.exe --benchmark .\Benchmark\static-grid.json
+& .\Deffered\bin\x64\Release\Deffered.exe --forward --benchmark .\Benchmark\static-grid.json
 & .\Deffered\bin\x64\Release\Deffered.exe --benchmark .\Benchmark\static-grid.json
 ```
 

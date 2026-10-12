@@ -7,6 +7,7 @@
 #include "../ThirdParty/ImGui/backends/imgui_impl_win32.h"
 #include "../ThirdParty/ImGui/backends/imgui_impl_dx12.h"
 #include <cstdio>
+#include <cmath>
 #include "../../Benchmark/ComparisonUi.h"
 
 extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND, UINT, WPARAM, LPARAM);
@@ -32,6 +33,70 @@ namespace
         const ImVec2 text_size = ImGui::CalcTextSize(layout);
         overlay->AddText({ (size.x - text_size.x) * 0.5f, size.y - 48.0f },
             IM_COL32(240, 240, 240, 255), layout);
+    }
+
+    void draw_split_label(ImDrawList* draw, ImVec2 position, const char* text)
+    {
+        const ImVec2 text_size = ImGui::CalcTextSize(text);
+        draw->AddRectFilled(position, { position.x + text_size.x + 16.0f, position.y + text_size.y + 10.0f },
+            IM_COL32(20, 23, 27, 200), 3.0f);
+        draw->AddText({ position.x + 8.0f, position.y + 5.0f }, IM_COL32(255, 255, 255, 255), text);
+    }
+
+    // Draggable vertical divider: Forward on the left, Deferred on the right.
+    // It is an ImGui window, so hovering/dragging it sets WantCaptureMouse and
+    // viewport picking and camera input stay idle. Double-click resets to 50%.
+    void draw_split_divider(VIEWER_SETTINGS& settings)
+    {
+        const auto& io = ImGui::GetIO();
+        const ImVec2 size = io.DisplaySize;
+        if (size.x <= 0.0f || size.y <= 0.0f) return;
+        constexpr float grab_width = 12.0f;
+        constexpr float min_ratio = 0.0f;
+        constexpr float max_ratio = 1.0f;
+        settings.split_ratio = (std::clamp)(settings.split_ratio, min_ratio, max_ratio);
+        const float x = std::floor(size.x * settings.split_ratio + 0.5f);
+
+        ImGui::SetNextWindowPos({ x - grab_width * 0.5f, 0.0f });
+        ImGui::SetNextWindowSize({ grab_width, size.y });
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, { 0.0f, 0.0f });
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowMinSize, { 1.0f, 1.0f });
+        // NoBringToFrontOnFocus keeps the divider behind the side panels.
+        ImGui::Begin("##split_divider", nullptr,
+            ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize |
+            ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoBackground |
+            ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoFocusOnAppearing |
+            ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoScrollWithMouse);
+        ImGui::InvisibleButton("##split_handle", { grab_width, size.y });
+        const bool ishovered = ImGui::IsItemHovered();
+        const bool isactive = ImGui::IsItemActive();
+        if (isactive)
+            settings.split_ratio = (std::clamp)(io.MousePos.x / size.x, min_ratio, max_ratio);
+        if (ishovered && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
+            settings.split_ratio = 0.5f;
+        if (ishovered || isactive) ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
+
+        const float line_x = std::floor(size.x * settings.split_ratio + 0.5f);
+        const ImU32 color = isactive ? IM_COL32(255, 140, 13, 255)
+            : ishovered ? IM_COL32(255, 175, 70, 255) : IM_COL32(235, 235, 235, 210);
+        auto* draw = ImGui::GetWindowDrawList();
+        draw->PushClipRectFullScreen();
+        draw->AddLine({ line_x, 0.0f }, { line_x, size.y }, color, (ishovered || isactive) ? 3.0f : 2.0f);
+        draw->AddRectFilled({ line_x - 4.0f, size.y * 0.5f - 22.0f },
+            { line_x + 4.0f, size.y * 0.5f + 22.0f }, color, 4.0f);
+        draw->PopClipRect();
+        ImGui::End();
+        ImGui::PopStyleVar(3);
+
+        auto* background = ImGui::GetBackgroundDrawList();
+        const float label_y = size.y - 40.0f;
+        const char* forward = "FORWARD";
+        const float forward_width = ImGui::CalcTextSize(forward).x + 16.0f;
+        if (line_x - forward_width - 12.0f > 0.0f)
+            draw_split_label(background, { line_x - forward_width - 12.0f, label_y }, forward);
+        if (line_x + 12.0f < size.x - 60.0f)
+            draw_split_label(background, { line_x + 12.0f, label_y }, "DEFERRED");
     }
 
     void draw_fps(bool ispanels_visible)
@@ -126,6 +191,8 @@ void VIEWER_UI::begin_frame(VIEWER_SETTINGS& settings, SCENE& scene, const VIEWE
     _is_frame_open = true;
     if (ispanels_visible)
     {
+        // Drawn before the panels so the panels stay on top of the divider.
+        if (settings.is_split_active()) draw_split_divider(settings);
         _panels.draw(settings, scene, stats, _textures);
         _import_dialog.draw();
         if (!_import_dialog.is_open() && settings.mode != VIEW_MODE::gbuffer)

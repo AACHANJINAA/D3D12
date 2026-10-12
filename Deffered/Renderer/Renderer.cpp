@@ -66,6 +66,9 @@ bool RENDERER::initialize(HINSTANCE instance, int show_command)
         return report_initialization_failure(L"deferred_light_pass.initialize");
     if (!_skybox_render_pass.initialize(_device.Get()))
         return report_initialization_failure(L"skybox_render_pass.initialize");
+    // Viewer: back-face culling, PIP shading. Benchmark: same settings as the former Forward.exe.
+    if (!_forward_pass.initialize(_device.Get(), !_benchmark.isenabled, _benchmark.isenabled && _benchmark.ismatched))
+        return report_initialization_failure(L"pip_forward_pass.initialize");
     INPUT_MANAGER::get_instance().initialize(_window);
     CAMERA_MANAGER::get_instance().initialize();
     LIGHT_MANAGER::get_instance().initialize();
@@ -90,10 +93,11 @@ bool RENDERER::initialize(HINSTANCE instance, int show_command)
         CAMERA_MANAGER::get_instance().set_target_bounds({}, 1.0f);
         CAMERA_MANAGER::get_instance().set_pose(_benchmark.camera_position, _benchmark.camera_target);
     }
-    _benchmark.ui.renderer = "Deffered";
-    if (!_profiler.initialize(_device.Get(), _command_queue.Get(), _factory.Get(), _benchmark, "Deffered"))
+    _benchmark.ui.renderer = renderer_name();
+    if (!_profiler.initialize(_device.Get(), _command_queue.Get(), _factory.Get(), _benchmark, renderer_name()))
         return report_initialization_failure(L"benchmark profiler initialization/output exists");
-    SetWindowTextW(_window, _benchmark.isenabled ? L"Deffered | Comparison" : L"Deffered | PBR Viewer");
+    SetWindowTextW(_window, !_benchmark.isenabled ? L"Forward | Deferred - Split Viewer"
+        : (is_forward_benchmark() ? L"Forward | Comparison" : L"Deffered | Comparison"));
     return true;
 }
 
@@ -149,7 +153,7 @@ bool RENDERER::create_window(int show_command)
     RECT client_rect{ 0, 0, _benchmark.isenabled ? static_cast<LONG>(_benchmark.width) : 1280,
         _benchmark.isenabled ? static_cast<LONG>(_benchmark.height) : 720 };
     AdjustWindowRect(&client_rect, window_style, FALSE);
-    _window = CreateWindowExW(0, window_class_name, L"Deffered - D3D12 Renderer", window_style,
+    _window = CreateWindowExW(0, window_class_name, L"Forward | Deferred - D3D12 Renderer", window_style,
         CW_USEDEFAULT, CW_USEDEFAULT, client_rect.right - client_rect.left,
         client_rect.bottom - client_rect.top, nullptr, nullptr, _instance, this);
     if (_window == nullptr)
@@ -662,31 +666,62 @@ void RENDERER::render_frame()
     if (!_profiler.begin(profile_slot, _fence.Get())) { _is_render_failed = true; return; }
     FRAME_MEASUREMENTS measurement;
     const double prepare_start = FRAME_PROFILER::now();
-    const MATH::MATRIX4X4 transform =
-        CAMERA_MANAGER::get_instance().get_view_projection(aspect_ratio);
-    _benchmark.light_data.iscompact = _gbuffer_render_pass.is_compact() ? 1 : 0;
-    _benchmark.light_data.viewport_width = client_width;
-    _benchmark.light_data.viewport_height = client_height;
-    if (!comparison_inverse(transform, _benchmark.light_data.inverse_view_projection) ||
-        !_benchmark_lights.update(profile_slot, _benchmark.light_data)) { _is_render_failed = true; return; }
+    // Frame composition:
+    //   viewer            -> Forward (left) | Deferred (right) when split is active, otherwise Deferred
+    //   --benchmark       -> Deferred only
+    //   --benchmark --forward -> Forward only (former Forward.exe path, no Deferred CPU/GPU work)
+    const bool isforward_only = is_forward_benchmark();
+    const bool issplit = !_benchmark.isenabled && _viewer_settings.is_split_active();
+    const bool isdeferred = !isforward_only;
+    const bool isforward = isforward_only || issplit;
     auto& render_data = _frame_render_data[_frame_index];
-    if (!render_data.update(_device.Get(), _scene, _viewer_settings, transform,
-        CAMERA_MANAGER::get_instance().get_position(), !_benchmark.isenabled || _benchmark.isinstancing))
+    if (isdeferred)
     {
-        _is_render_failed = true;
-        report_initialization_failure(L"scene_render_data.update");
-        return;
+        const MATH::MATRIX4X4 transform =
+            CAMERA_MANAGER::get_instance().get_view_projection(aspect_ratio);
+        _benchmark.light_data.iscompact = _gbuffer_render_pass.is_compact() ? 1 : 0;
+        _benchmark.light_data.viewport_width = client_width;
+        _benchmark.light_data.viewport_height = client_height;
+        if (!comparison_inverse(transform, _benchmark.light_data.inverse_view_projection))
+        { _is_render_failed = true; return; }
+        if (!render_data.update(_device.Get(), _scene, _viewer_settings, transform,
+            CAMERA_MANAGER::get_instance().get_position(), !_benchmark.isenabled || _benchmark.isinstancing))
+        {
+            _is_render_failed = true;
+            report_initialization_failure(L"scene_render_data.update");
+            return;
+        }
     }
-    if (!_benchmark.report_submission("Deffered", _scene, render_data.get_draws().size(), render_data.get_instance_count()))
+    if (!_benchmark_lights.update(profile_slot, _benchmark.light_data)) { _is_render_failed = true; return; }
+    if (isforward)
+    {
+        // The PIP Forward shader uses its own light scale in the viewer.
+        VIEWER_SETTINGS forward_settings = _viewer_settings;
+        if (!_benchmark.isenabled) forward_settings.light_intensity = _viewer_settings.forward_light_intensity;
+        if (!_forward_pass.update(_device.Get(), _frame_index, _scene, forward_settings,
+            CAMERA_MANAGER::get_instance().get_view(), CAMERA_MANAGER::get_instance().get_projection(aspect_ratio),
+            CAMERA_MANAGER::get_instance().get_position(), _skybox_render_pass.get_cubemap(),
+            _material_textures.get_specular_cubemap(), _material_textures.get_brdf_lut(),
+            !_benchmark.isenabled || _benchmark.isinstancing, _benchmark.isenabled && _benchmark.ui.iscached))
+        {
+            _is_render_failed = true;
+            report_initialization_failure(L"pip_forward_pass.update");
+            return;
+        }
+    }
+    const size_t draw_count = isforward_only ? _forward_pass.get_draw_count(_frame_index) : render_data.get_draws().size();
+    const size_t instance_count = isforward_only ? _forward_pass.get_instance_count(_frame_index) : render_data.get_instance_count();
+    if (!_benchmark.report_submission(renderer_name(), _scene, draw_count, instance_count))
     {
         _is_render_failed = true;
         report_initialization_failure(L"benchmark submission count/report");
         return;
     }
 
-    measurement.draws = render_data.get_draws().size();
-    measurement.gbuffer_mib = client_width * client_height * (_gbuffer_render_pass.is_compact() ? 20.0 : 40.0) / (1024 * 1024);
-    measurement.instances = render_data.get_instance_count();
+    measurement.draws = draw_count;
+    measurement.instances = instance_count;
+    if (isforward_only) measurement.srv_writes = _forward_pass.get_srv_writes(_frame_index);
+    else measurement.gbuffer_mib = client_width * client_height * (_gbuffer_render_pass.is_compact() ? 20.0 : 40.0) / (1024 * 1024);
     measurement.triangles = _scene.triangle_count();
     measurement.lights = _benchmark.light_data.count;
     measurement.prepare_ms = (FRAME_PROFILER::now() - prepare_start) * 1000;
@@ -711,28 +746,60 @@ void RENDERER::render_frame()
     const auto depth_stencil_handle = _depth_stencil_heap->GetCPUDescriptorHandleForHeapStart();
     constexpr float clear_color[] = { 0.22f, 0.23f, 0.25f, 1.0f };
     _command_list->ClearRenderTargetView(render_target_handle, clear_color, 0, nullptr);
+    // One camera, one viewport; the scissor decides which renderer owns each column.
+    const LONG width = static_cast<LONG>(client_width);
+    const LONG height = static_cast<LONG>(client_height);
+    const LONG split_x = issplit
+        ? (std::clamp)(static_cast<LONG>(client_width * _viewer_settings.split_ratio + 0.5f), 0L, width) : 0L;
+    const D3D12_RECT full_rect{ 0, 0, width, height };
+    const D3D12_RECT forward_rect{ 0, 0, split_x, height };
+    const D3D12_RECT deferred_rect{ split_x, 0, width, height };
+    // A 2px apron keeps the selection outline kernel from seeing a false edge at the divider.
+    const D3D12_RECT gbuffer_rect{ (std::max)(split_x - 2L, 0L), 0, width, height };
     D3D12_VIEWPORT viewport{ 0.0f, 0.0f, client_width, client_height, 0.0f, 1.0f };
-    D3D12_RECT scissor_rect{
-        0, 0, static_cast<LONG>(client_width), static_cast<LONG>(client_height) };
     _command_list->RSSetViewports(1, &viewport);
-    _command_list->RSSetScissorRects(1, &scissor_rect);
 
-    _profiler.stamp(_command_list.Get(), profile_slot, 2);
-    _gbuffer_render_pass.render(_command_list.Get(), depth_stencil_handle,
-        render_data.get_draws(), _viewer_settings.mode == VIEW_MODE::wireframe);
-    _profiler.stamp(_command_list.Get(), profile_slot, 3);
+    // Deferred: geometry only rasterizes the right column of the G-buffer.
+    if (isdeferred)
+    {
+        _command_list->RSSetScissorRects(1, &gbuffer_rect);
+        _profiler.stamp(_command_list.Get(), profile_slot, 2);
+        _gbuffer_render_pass.render(_command_list.Get(), depth_stencil_handle,
+            render_data.get_draws(), _viewer_settings.mode == VIEW_MODE::wireframe);
+        _profiler.stamp(_command_list.Get(), profile_slot, 3);
+    }
 
     // Full-screen passes have depth disabled; keep geometry depth for future overlays.
     _command_list->OMSetRenderTargets(1, &render_target_handle, FALSE, nullptr);
+    _command_list->RSSetScissorRects(1, &full_rect);
     _profiler.stamp(_command_list.Get(), profile_slot, 4);
-    if (_viewer_settings.is_skybox_visible &&
-        (_viewer_settings.mode == VIEW_MODE::lit || _viewer_settings.mode == VIEW_MODE::wireframe))
+    if (_viewer_settings.is_skybox_visible && (isforward_only ||
+        _viewer_settings.mode == VIEW_MODE::lit || _viewer_settings.mode == VIEW_MODE::wireframe))
         _skybox_render_pass.render(_command_list.Get(), _viewer_settings.exposure);
     _profiler.stamp(_command_list.Get(), profile_slot, 5);
     _profiler.stamp(_command_list.Get(), profile_slot, 6);
-    _deferred_light_pass.render(_command_list.Get(), render_data.get_lighting_constants(),
-        _benchmark_lights.address(_frame_index));
+    if (isdeferred)
+    {
+        _command_list->RSSetScissorRects(1, &deferred_rect);
+        _deferred_light_pass.render(_command_list.Get(), render_data.get_lighting_constants(),
+            _benchmark_lights.address(_frame_index));
+    }
     _profiler.stamp(_command_list.Get(), profile_slot, 7);
+
+    // Forward: shades directly over the skybox (left column in split view, full screen when forward-only).
+    // The G-buffer pass has finished with the depth buffer, so it is reused here.
+    if (isforward_only || (issplit && split_x > 0))
+    {
+        _command_list->RSSetScissorRects(1, isforward_only ? &full_rect : &forward_rect);
+        if (isforward_only) _profiler.stamp(_command_list.Get(), profile_slot, 2);
+        _command_list->OMSetRenderTargets(1, &render_target_handle, FALSE, &depth_stencil_handle);
+        _command_list->ClearDepthStencilView(depth_stencil_handle, D3D12_CLEAR_FLAG_DEPTH, 1.0f, 0, 0, nullptr);
+        _forward_pass.render(_command_list.Get(), _frame_index, _viewer_settings.mode == VIEW_MODE::wireframe,
+            _benchmark_lights.address(_frame_index));
+        if (isforward_only) _profiler.stamp(_command_list.Get(), profile_slot, 3);
+        _command_list->OMSetRenderTargets(1, &render_target_handle, FALSE, nullptr);
+    }
+    _command_list->RSSetScissorRects(1, &full_rect);
     _profiler.stamp(_command_list.Get(), profile_slot, 8);
     _ui.render(_command_list.Get());
     _profiler.stamp(_command_list.Get(), profile_slot, 9);
@@ -812,6 +879,7 @@ void RENDERER::shutdown()
         _fence_event = nullptr;
     }
     for (auto& data : _frame_render_data) data.reset();
+    _forward_pass.reset();
     _failed_import_list.Reset();
     _failed_import_allocator.Reset();
     _failed_import.reset();

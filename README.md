@@ -46,6 +46,32 @@ Damaged Helmet은 외부 샘플 에셋이며 직접 제작한 모델이 아닙�
 | GPU 관리 | 명령 제출, Fence, 리소스 상태 전환, 업로드, 창 크기 변경 시 타깃 재생성 |
 | 뷰어 | 자유 카메라·공전, 광원 조절, 표시 모드, 패널 토글 |
 
+## Forward | Deferred 분할 비교 뷰
+
+일반 뷰어는 한 창에서 **좌측 Forward, 우측 Deferred**를 같은 카메라·장면으로 동시에 렌더링합니다.
+화면 가운데 세로 분할선을 **드래그**해 경계를 옮길 수 있고, **더블클릭**하면 50 : 50으로 돌아갑니다.
+
+| 항목 | 내용 |
+| --- | --- |
+| 좌측 Forward | S.T.L PIP 셰이더(`Shader/Pip`)를 쓰는 `PIP_FORWARD_PASS`가 백 버퍼에 직접 셰이딩 |
+| 우측 Deferred | 기존 Geometry → G-buffer → Deferred Lighting 경로 |
+| 분할 방식 | 뷰포트는 전체 화면 하나, **Scissor Rect**로 각 렌더러가 담당할 열을 제한 |
+| 표시 조건 | `LIT`, `WIREFRAME`에서만 분할. G-buffer 디버그 모드는 Forward에 대응 데이터가 없어 Deferred 전체 화면 |
+| 설정 | DISPLAY → `Split view` 토글·`RESET SPLIT`, LIGHT → `Fwd Intensity`(PIP 셰이더의 광원 스케일이 달라 별도 값) |
+| 벤치마크 | `--benchmark` 실행 시에는 분할하지 않고 기존 Deferred 단독 프레임을 유지 |
+
+분할 모드의 프레임 순서:
+
+```text
+G-buffer (우측 열 + 2px) → Skybox (전체) → Deferred Lighting (우측 열)
+  → Depth Clear → Forward (좌측 열) → UI (분할선·라벨 포함) → Present
+```
+
+Depth Buffer는 G-buffer 패스가 끝난 뒤 Forward가 다시 클리어해 재사용합니다.
+Deferred G-buffer를 분할선보다 2px 넓게 그려 선택 외곽선 커널이 경계에서 가짜 테두리를 만들지 않게 합니다.
+두 렌더러는 셰이더·조명 모델이 다르므로 **화질 비교용 시각화이며 같은 결과를 보장하지 않습니다.**
+`--benchmark`에 `--forward`를 함께 주면 기존 Forward.exe와 같은 Forward 단독 프레임을 측정합니다.
+
 ## 빌드와 실행
 
 ### 개발 환경
@@ -206,13 +232,13 @@ Deffered/                     # 주 개발 프로젝트
     Renderer.*                # 초기화와 패스 조립
     SceneRenderData.*         # Draw·인스턴스·상수 데이터
     Manager/                  # Camera, Input, Light, Resource 관리
-    Pass/                     # GBuffer, Skybox, DeferredLight
+    Pass/                     # GBuffer, Skybox, DeferredLight, PipForward(분할 비교용)
     Shader/                   # PBR·G-buffer·조명·디버그 HLSL
+  PipReference/               # S.T.L PIP 원본 스냅샷과 Forward 포팅 노트 (빌드 대상 아님)
   Resource/                   # glTF 파싱, 메시·재질·텍스처와 캐시
   Scene/                      # 객체·선택·변환
   UI/                         # 패널, 파일 선택, Import 대화상자
   ThirdParty/ImGui/           # Dear ImGui와 백엔드
-Forward/                      # S.T.L 참조 Forward 포팅본
 Benchmark/                    # 보관 중인 비교 설정·계측·실행 스크립트
 Tests/                        # Import·배칭 검증 코드
 Base_MD/                      # 기존 설계·계획·개발 기록
@@ -238,14 +264,16 @@ FPS 비교나 “Deferred가 항상 빠르다”는 주장 대신 구현 범위�
 
 ## 비교 실험과 검증 범위
 
-Forward와 Benchmark는 후속 성능 점검을 위해 보관하며 **기본 시연에는 사용하지 않습니다.**
-Forward는 S.T.L 전체 게임의 무수정 복사본이 아니라 정적 메시 렌더링 포팅본입니다.
-[포팅 범위와 차이](Forward/PipReference/PORTING_NOTES.md)를 참고합니다.
+Benchmark는 후속 성능 점검을 위해 보관하며 **기본 시연에는 사용하지 않습니다.**
+Forward 경로는 S.T.L 전체 게임의 무수정 복사본이 아니라 정적 메시 렌더링 포팅본입니다.
+[포팅 범위와 차이](Deffered/PipReference/PORTING_NOTES.md)를 참고합니다.
+별도 `Forward` 프로젝트는 삭제했으며, Forward 단독 측정은 같은 실행 파일에 `--forward`를 붙여 실행합니다.
 
 기존 JSON 기반 비교가 필요할 때만 저장소 루트에서 명시적으로 실행합니다.
 
 ```powershell
 & .\Deffered\bin\x64\Release\Deffered.exe --benchmark .\Benchmark\comparison.json
+& .\Deffered\bin\x64\Release\Deffered.exe --forward --benchmark .\Benchmark\comparison.json
 ```
 
 계측에는 CPU 준비·기록 시간, GPU 타임스탬프, Draw·SRV 쓰기 횟수와 CSV/JSON 출력이 포함됩니다.

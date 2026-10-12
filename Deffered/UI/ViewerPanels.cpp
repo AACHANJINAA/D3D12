@@ -159,8 +159,8 @@ void VIEWER_PANELS::draw(VIEWER_SETTINGS& settings, SCENE& scene, const VIEWER_S
     const char* model_name = selected ? selected->name.c_str() : nullptr;
     const float inspector_height = _is_inspector
         ? (std::clamp)(available - 478.0f, 100.0f, 200.0f) : -8.0f;
-    const float display_height = _is_display ? 282.0f : -8.0f;
-    const float light_height = (std::max)(180.0f, available - inspector_height - display_height - 16.0f);
+    const float display_height = _is_display ? 340.0f : -8.0f;
+    const float light_height = (std::max)(210.0f, available - inspector_height - display_height - 16.0f);
     if (_is_inspector)
     {
         if (begin_panel("INSPECTOR", _is_inspector, { right, top },
@@ -245,6 +245,11 @@ void VIEWER_PANELS::draw(VIEWER_SETTINGS& settings, SCENE& scene, const VIEWER_S
             if (ImGui::Combo("##gbuffer_layout", &layout, layouts, 2))
                 settings.iscompact_gbuffer = layout == 1;
             ImGui::Checkbox("Skybox", &settings.is_skybox_visible);
+            ImGui::Checkbox("Split view  (Forward | Deferred)", &settings.issplit_view);
+            if (settings.issplit_view && !settings.is_split_active())
+                ImGui::TextDisabled("Split: LIT / WIREFRAME only");
+            else if (settings.issplit_view && ImGui::Button("RESET SPLIT 50 : 50", { -1, 25 }))
+                settings.split_ratio = 0.5f;
             if (settings.mode == VIEW_MODE::depth || settings.mode == VIEW_MODE::gbuffer)
                 ImGui::SliderFloat("Range", &settings.depth_range, 0.1f, 100, "%.1f");
         }
@@ -259,6 +264,7 @@ void VIEWER_PANELS::draw(VIEWER_SETTINGS& settings, SCENE& scene, const VIEWER_S
             ImGui::DragFloat3("Direction", &settings.light_direction.x, 0.01f, -1, 1, "%.2f");
             ImGui::ColorEdit3("Color", &settings.light_color.x, ImGuiColorEditFlags_NoInputs);
             slider_with_value("Intensity", &settings.light_intensity, 0, 20, "%.2f");
+            slider_with_value("Fwd Intensity", &settings.forward_light_intensity, 0, 5, "%.2f");
             slider_with_value("Environment", &settings.environment_intensity, 0, 3, "%.2f");
             slider_with_value("Exposure", &settings.exposure, -5, 5, "%.2f EV");
             ImGui::Checkbox("Rotate light", &settings.is_light_orbiting);

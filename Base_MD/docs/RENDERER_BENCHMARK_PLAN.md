@@ -26,7 +26,7 @@ Deferred라는 이름 자체나 게임보다 가벼운 뷰어라는 이유로 �
 - 개발 대상: `C:/Users/ckswl/Desktop/GITHUB/D3D12/Deffered`
 - 독립 비교 실행부: `C:/Users/ckswl/Desktop/GITHUB/D3D12/Forward`
 - 공통 입력: 루트 `Benchmark/static-grid.json`. PIP 정적 경로의 포팅 범위와 원본과의 차이는
-  `Forward/PipReference/PORTING_NOTES.md` 참고. 기준선 분리와 입력 고정은 구현했지만
+  `Deffered/PipReference/PORTING_NOTES.md` 참고. 기준선 분리와 입력 고정은 구현했지만
   B0 계측, 출력 품질 동등성 및 실제 성능 비교는 아직 완료하지 않았다.
 - 아래 내용은 2026-10-02 소스 확인 결과이며 실측 성능 결과가 아니다.
 
@@ -396,7 +396,7 @@ CPU 작업 시간은 prepare/record/submit/present/sync로 구분한다.
 
 ```powershell
 & .\Deffered\bin\x64\Release\Deffered.exe --benchmark .\Benchmark\batching-10000.json
-& .\Forward\bin\x64\Release\Forward.exe --benchmark .\Benchmark\batching-10000.json
+& .\Deffered\bin\x64\Release\Deffered.exe --forward --benchmark .\Benchmark\batching-10000.json
 ```
 
 동일 JSON에서 instancing만 false로 바꿔 개별 Draw와 비교한다. 5만 개 입력도 같은 방식으로 실행한다.
@@ -416,7 +416,7 @@ GPU 렌더링 결과와 시간은 직접 실행 후 확인해야 하며, 빌드 
 ### 수동 비교
 
 ```powershell
-& .\Forward\bin\x64\Release\Forward.exe --benchmark .\Benchmark\comparison.json
+& .\Deffered\bin\x64\Release\Deffered.exe --forward --benchmark .\Benchmark\comparison.json
 & .\Deffered\bin\x64\Release\Deffered.exe --benchmark .\Benchmark\comparison.json
 ```
 

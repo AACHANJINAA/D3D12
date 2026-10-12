@@ -9,6 +9,7 @@
 #include "Pass/GBufferRenderPass.h"
 #include "Pass/DeferredLightPass.h"
 #include "Pass/SkyboxRenderPass.h"
+#include "Pass/PipForwardPass.h"
 #include "../Resource/ModelResource.h"
 #include <memory>
 #include "../Resource/Texture.h"
@@ -38,6 +39,8 @@ private:
     bool create_command_objects();
     bool create_swap_chain();
     bool create_render_targets();
+    bool is_forward_benchmark() const { return _benchmark.isenabled && _benchmark.isforward; }
+    const char* renderer_name() const { return is_forward_benchmark() ? "Forward" : "Deffered"; }
     bool create_gbuffer_targets();
     bool update_deferred_resources();
     bool resize_swap_chain();
@@ -71,6 +74,7 @@ private:
     GBUFFER_RENDER_PASS _gbuffer_render_pass;
     DEFERRED_LIGHT_PASS _deferred_light_pass;
     SKYBOX_RENDER_PASS _skybox_render_pass;
+    PIP_FORWARD_PASS _forward_pass;
     SCENE _scene;
     RESOURCE_MANAGER _resources;
     std::array<SCENE_RENDER_DATA, frame_count> _frame_render_data;

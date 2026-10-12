@@ -56,12 +56,14 @@ foreach ($case in $Cases) {
                     spacing=@($spacing,$spacing,0);scale=@(($spacing*.4),($spacing*.4),($spacing*.4))}
             }
             Save-Json "$run.scene.json" $scene
-            $exe=Join-Path $root "$($definition.renderer)/bin/x64/$Configuration/$($definition.renderer).exe"
+            # Single executable; '--forward' selects the Forward-only path.
+            $exe=Join-Path $root "Deffered/bin/x64/$Configuration/Deffered.exe"
+            $extra=if ($definition.renderer -eq 'Forward') { @('--forward') } else { @() }
             $entry=[ordered]@{run=$run;renderer=$definition.renderer;status='failed';error=''}
             $process=$null
             try {
                 Write-Host "$run $($definition.renderer)"
-                $process=Start-Process -FilePath $exe -WorkingDirectory $root -WindowStyle Normal -ArgumentList @('--benchmark',('"'+(Join-Path $output "$run.scene.json")+'"')) -PassThru
+                $process=Start-Process -FilePath $exe -WorkingDirectory $root -WindowStyle Normal -ArgumentList (@('--benchmark',('"'+(Join-Path $output "$run.scene.json")+'"')) + $extra) -PassThru
                 if (!$process.WaitForExit([int](($Warmup+$Seconds+60)*1000))) {
                     Stop-Process -Id $process.Id -Force
                     $process.WaitForExit()

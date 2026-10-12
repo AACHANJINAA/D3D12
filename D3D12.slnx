@@ -4,5 +4,4 @@
     <Platform Name="x86" />
   </Configurations>
   <Project Path="Deffered/Deffered.vcxproj" />
-  <Project Path="Forward/Forward.vcxproj" />
 </Solution>

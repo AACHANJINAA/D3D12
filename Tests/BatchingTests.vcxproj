@@ -7,6 +7,8 @@
     <ProjectGuid>{DB82FC6A-42E9-4F4C-B345-BBE7C170AA17}</ProjectGuid>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
     <RendererUnderTest Condition="'$(RendererUnderTest)'==''">Deffered</RendererUnderTest>
+    <!-- Forward and Deferred now share the single Deffered source tree; RendererUnderTest only selects the pass. -->
+    <SourceRoot>Deffered</SourceRoot>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Label="Configuration"><ConfigurationType>Application</ConfigurationType><PlatformToolset>v145</PlatformToolset><UseDebugLibraries>true</UseDebugLibraries></PropertyGroup>
@@ -21,16 +23,16 @@
   <ItemDefinitionGroup Condition="'$(RendererUnderTest)'=='Forward'"><ClCompile><PreprocessorDefinitions>TEST_FORWARD;%(PreprocessorDefinitions)</PreprocessorDefinitions></ClCompile></ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="BatchingTests.cpp" />
-    <ClCompile Include="..\$(RendererUnderTest)\Resource\GltfMesh.cpp" />
-    <ClCompile Include="..\$(RendererUnderTest)\Resource\MeshResource.cpp" />
-    <ClCompile Include="..\$(RendererUnderTest)\Resource\ModelResource.cpp" />
-    <ClCompile Include="..\$(RendererUnderTest)\Resource\Texture.cpp" />
-    <ClCompile Include="..\$(RendererUnderTest)\Scene\Scene.cpp" />
-    <ClCompile Include="..\$(RendererUnderTest)\Renderer\Shader\Shader.cpp" />
+    <ClCompile Include="..\$(SourceRoot)\Resource\GltfMesh.cpp" />
+    <ClCompile Include="..\$(SourceRoot)\Resource\MeshResource.cpp" />
+    <ClCompile Include="..\$(SourceRoot)\Resource\ModelResource.cpp" />
+    <ClCompile Include="..\$(SourceRoot)\Resource\Texture.cpp" />
+    <ClCompile Include="..\$(SourceRoot)\Scene\Scene.cpp" />
+    <ClCompile Include="..\$(SourceRoot)\Renderer\Shader\Shader.cpp" />
     <ClCompile Include="..\Deffered\Renderer\SceneRenderData.cpp" Condition="'$(RendererUnderTest)'=='Deffered'" />
     <ClCompile Include="..\Deffered\Renderer\Pass\GBufferRenderPass.cpp" Condition="'$(RendererUnderTest)'=='Deffered'" />
-    <ClCompile Include="..\Forward\Renderer\Pass\PipForwardPass.cpp" Condition="'$(RendererUnderTest)'=='Forward'" />
-    <RuntimeShader Include="..\$(RendererUnderTest)\Renderer\Shader\**\*.hlsl;..\$(RendererUnderTest)\Renderer\Shader\**\*.hlsli" />
+    <ClCompile Include="..\Deffered\Renderer\Pass\PipForwardPass.cpp" Condition="'$(RendererUnderTest)'=='Forward'" />
+    <RuntimeShader Include="..\$(SourceRoot)\Renderer\Shader\**\*.hlsl;..\$(SourceRoot)\Renderer\Shader\**\*.hlsli" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <Target Name="CopyTestShaders" AfterTargets="Build">
