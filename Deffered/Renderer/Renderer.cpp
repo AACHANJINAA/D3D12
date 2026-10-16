@@ -64,6 +64,8 @@ bool RENDERER::initialize(HINSTANCE instance, int show_command)
         return report_initialization_failure(L"gbuffer_render_pass.initialize");
     if (!_deferred_light_pass.initialize(_device.Get()))
         return report_initialization_failure(L"deferred_light_pass.initialize");
+    if (!_light_culling_pass.initialize(_device.Get()))
+        return report_initialization_failure(L"light_culling_pass.initialize");
     if (!_skybox_render_pass.initialize(_device.Get()))
         return report_initialization_failure(L"skybox_render_pass.initialize");
     // Viewer: back-face culling, PIP shading. Benchmark: same settings as the former Forward.exe.
@@ -382,9 +384,10 @@ bool RENDERER::create_gbuffer_targets()
 
 bool RENDERER::update_deferred_resources()
 {
-    return _deferred_light_pass.set_resources(_device.Get(), _gbuffer_render_pass,
+    return _light_culling_pass.set_resources(_device.Get(), _gbuffer_render_pass) &&
+        _deferred_light_pass.set_resources(_device.Get(), _gbuffer_render_pass,
         _skybox_render_pass.get_cubemap(), _material_textures.get_brdf_lut(),
-        _material_textures.get_specular_cubemap());
+        _material_textures.get_specular_cubemap(), _light_culling_pass);
 }
 
 void RENDERER::focus_object(SCENE_OBJECT& object)
@@ -628,6 +631,8 @@ void RENDERER::render_frame()
         _viewer_settings.mode = static_cast<VIEW_MODE>(_benchmark.ui.view);
         _benchmark.isinstancing = _benchmark.ui.isinstancing;
         _benchmark.light_data.count = static_cast<UINT>(_benchmark.ui.light_count);
+        for (auto& point : _benchmark.light_data.points) point.position_radius.w = _benchmark.ui.light_radius;
+        _benchmark.ui.renderer = is_forward_benchmark() ? "Forward" : deferred_name(_benchmark.ui.culling);
     }
     float scene_distance = 1.0f;
     for (const auto& object : _scene.get_objects())
@@ -691,6 +696,22 @@ void RENDERER::render_frame()
             report_initialization_failure(L"scene_render_data.update");
             return;
         }
+        // Tiled/Clustered only replace the matched point-light loop, so the viewer keeps the full path.
+        const UINT culling_mode = _benchmark.isenabled && _benchmark.ismatched
+            ? static_cast<UINT>(_benchmark.ui.culling) : static_cast<UINT>(LIGHT_CULLING::none);
+        const auto view = CAMERA_MANAGER::get_instance().get_view();
+        float view_z_min = FLT_MAX, view_z_max = 0.0f;
+        for (const auto& object : _scene.get_objects())
+        {
+            if (!object.isvisible) continue;
+            const float center_z = MATH::transform_point(object.get_center(), view).z;
+            view_z_min = (std::min)(view_z_min, center_z - object.get_radius());
+            view_z_max = (std::max)(view_z_max, center_z + object.get_radius());
+        }
+        if (!_light_culling_pass.update(_frame_index, _light_culling_pass.make_constants(culling_mode,
+            _benchmark.isenabled && _benchmark.ui.isheatmap, view,
+            CAMERA_MANAGER::get_instance().get_projection(aspect_ratio), view_z_min, view_z_max)))
+        { _is_render_failed = true; return; }
     }
     if (!_benchmark_lights.update(profile_slot, _benchmark.light_data)) { _is_render_failed = true; return; }
     if (isforward)
@@ -768,6 +789,11 @@ void RENDERER::render_frame()
             render_data.get_draws(), _viewer_settings.mode == VIEW_MODE::wireframe);
         _profiler.stamp(_command_list.Get(), profile_slot, 3);
     }
+    // Light culling reads the finished G-buffer depth (tiled) and writes per-cell light masks.
+    _profiler.stamp(_command_list.Get(), profile_slot, 10);
+    if (isdeferred)
+        _light_culling_pass.dispatch(_command_list.Get(), _frame_index, _benchmark_lights.address(_frame_index));
+    _profiler.stamp(_command_list.Get(), profile_slot, 11);
 
     // Full-screen passes have depth disabled; keep geometry depth for future overlays.
     _command_list->OMSetRenderTargets(1, &render_target_handle, FALSE, nullptr);
@@ -782,7 +808,7 @@ void RENDERER::render_frame()
     {
         _command_list->RSSetScissorRects(1, &deferred_rect);
         _deferred_light_pass.render(_command_list.Get(), render_data.get_lighting_constants(),
-            _benchmark_lights.address(_frame_index));
+            _benchmark_lights.address(_frame_index), _light_culling_pass.address(_frame_index));
     }
     _profiler.stamp(_command_list.Get(), profile_slot, 7);
 
@@ -800,6 +826,9 @@ void RENDERER::render_frame()
         _command_list->OMSetRenderTargets(1, &render_target_handle, FALSE, nullptr);
     }
     _command_list->RSSetScissorRects(1, &full_rect);
+    const bool iscapture = _benchmark.isenabled && !_benchmark.capture_path.empty() &&
+        ++_benchmark_frames == BENCHMARK_SCENE::capture_frame;
+    if (iscapture && !record_capture()) { _is_render_failed = true; return; }
     _profiler.stamp(_command_list.Get(), profile_slot, 8);
     _ui.render(_command_list.Get());
     _profiler.stamp(_command_list.Get(), profile_slot, 9);
@@ -833,6 +862,79 @@ void RENDERER::render_frame()
     move_to_next_frame();
     measurement.sync_ms = (FRAME_PROFILER::now() - sync_start) * 1000;
     if (!_is_render_failed) _profiler.submit(profile_slot, _frame_fences[profile_slot], measurement);
+    if (iscapture && (!wait_for_gpu() || !write_capture()))
+    {
+        _is_render_failed = true;
+        report_initialization_failure(L"benchmark capture");
+    }
+    // A capture-only run (no timed measurement) closes once the image is written.
+    else if (iscapture && !_benchmark.isautomated && !_benchmark.iskeep_open) PostMessageW(_window, WM_CLOSE, 0, 0);
+}
+
+bool RENDERER::record_capture()
+{
+    ID3D12Resource* back_buffer = _render_targets[_frame_index].Get();
+    const auto description = back_buffer->GetDesc();
+    UINT64 size = 0;
+    _device->GetCopyableFootprints(&description, 0, 1, 0, &_capture_footprint, nullptr, nullptr, &size);
+    const CD3DX12_HEAP_PROPERTIES heap(D3D12_HEAP_TYPE_READBACK);
+    const auto buffer = CD3DX12_RESOURCE_DESC::buffer(size);
+    if (FAILED(_device->CreateCommittedResource(&heap, D3D12_HEAP_FLAG_NONE, &buffer,
+        D3D12_RESOURCE_STATE_COPY_DEST, nullptr, IID_PPV_ARGS(&_capture_readback)))) return false;
+    auto barrier = CD3DX12_RESOURCE_BARRIER::transition(back_buffer,
+        D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_COPY_SOURCE);
+    _command_list->ResourceBarrier(1, &barrier);
+    D3D12_TEXTURE_COPY_LOCATION destination{};
+    destination.pResource = _capture_readback.Get();
+    destination.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
+    destination.PlacedFootprint = _capture_footprint;
+    D3D12_TEXTURE_COPY_LOCATION source{};
+    source.pResource = back_buffer;
+    source.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+    _command_list->CopyTextureRegion(&destination, 0, 0, 0, &source, nullptr);
+    std::swap(barrier.Transition.StateBefore, barrier.Transition.StateAfter);
+    _command_list->ResourceBarrier(1, &barrier);
+    return true;
+}
+
+bool RENDERER::write_capture()
+{
+    // 24-bit bottom-up BMP from the R8G8B8A8 back buffer.
+    const UINT width = _capture_footprint.Footprint.Width, height = _capture_footprint.Footprint.Height;
+    const UINT row_size = (width * 3 + 3) & ~3u;
+    std::vector<uint8_t> pixels(static_cast<size_t>(row_size) * height);
+    uint8_t* mapped = nullptr;
+    if (FAILED(_capture_readback->Map(0, nullptr, reinterpret_cast<void**>(&mapped)))) return false;
+    for (UINT y = 0; y < height; ++y)
+    {
+        const uint8_t* source = mapped + _capture_footprint.Offset + static_cast<size_t>(y) * _capture_footprint.Footprint.RowPitch;
+        uint8_t* destination = pixels.data() + static_cast<size_t>(height - 1 - y) * row_size;
+        for (UINT x = 0; x < width; ++x)
+        {
+            destination[x * 3 + 0] = source[x * 4 + 2];
+            destination[x * 3 + 1] = source[x * 4 + 1];
+            destination[x * 3 + 2] = source[x * 4 + 0];
+        }
+    }
+    const D3D12_RANGE written{ 0, 0 };
+    _capture_readback->Unmap(0, &written);
+    _capture_readback.Reset();
+    BITMAPFILEHEADER file_header{};
+    BITMAPINFOHEADER info_header{};
+    file_header.bfType = 0x4D42;
+    file_header.bfOffBits = sizeof(file_header) + sizeof(info_header);
+    file_header.bfSize = file_header.bfOffBits + static_cast<DWORD>(pixels.size());
+    info_header.biSize = sizeof(info_header);
+    info_header.biWidth = static_cast<LONG>(width);
+    info_header.biHeight = static_cast<LONG>(height);
+    info_header.biPlanes = 1;
+    info_header.biBitCount = 24;
+    info_header.biCompression = BI_RGB;
+    std::ofstream file(_benchmark.capture_path, std::ios::binary);
+    file.write(reinterpret_cast<const char*>(&file_header), sizeof(file_header));
+    file.write(reinterpret_cast<const char*>(&info_header), sizeof(info_header));
+    file.write(reinterpret_cast<const char*>(pixels.data()), static_cast<std::streamsize>(pixels.size()));
+    return static_cast<bool>(file);
 }
 
 void RENDERER::move_to_next_frame()

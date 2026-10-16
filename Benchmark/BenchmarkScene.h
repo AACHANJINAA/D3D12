@@ -14,6 +14,9 @@ public:
     bool isinstancing = true;
     bool isautomated = false, ismatched = true, iskeep_open = false;
     bool isforward = false;
+    UINT light_culling = 0;  // LIGHT_CULLING: none / tiled / clustered (Deferred only)
+    std::filesystem::path capture_path;
+    static constexpr UINT64 capture_frame = 120;
     double warmup_seconds = 10, measurement_seconds = 0;
     std::filesystem::path output_directory;
     std::string run_id;
@@ -33,6 +36,7 @@ public:
         if (!arguments) { error = "Could not read command line."; return false; }
         std::filesystem::path path;
         bool isrequested = false;
+        int culling = -1;
         for (int index = 1; index < count; ++index)
         {
             if (std::wstring(arguments[index]) == L"--benchmark")
@@ -42,10 +46,22 @@ public:
             }
             // Runs the S.T.L Forward path alone (replaces the former Forward.exe).
             else if (std::wstring(arguments[index]) == L"--forward") isforward = true;
+            // Deferred point-light loop variants; output files are named Deffered-Tiled / -Clustered.
+            else if (std::wstring(arguments[index]) == L"--tiled") culling = 1;
+            else if (std::wstring(arguments[index]) == L"--clustered") culling = 2;
+            // Saves the lit frame (before UI) as BMP; used to diff the light loop variants.
+            else if (std::wstring(arguments[index]) == L"--capture" && index + 1 < count)
+                capture_path = arguments[++index];
         }
         LocalFree(arguments);
         if (!isrequested) return true;
-        return load_file(path, error);
+        if (!load_file(path, error)) return false;
+        // The command line overrides "light_culling" in the scene JSON.
+        if (culling >= 0) light_culling = static_cast<UINT>(culling);
+        if (isforward) light_culling = 0;
+        if (light_culling != 0 && !ismatched) { error = "Light culling requires matched_quality."; return false; }
+        ui.culling = static_cast<int>(light_culling);
+        return true;
     }
 
     bool load_file(std::filesystem::path path, std::string& error)
@@ -164,7 +180,7 @@ public:
             if (objects.empty()) throw std::runtime_error("Benchmark requires objects or a grid.");
             light_data = {};
             light_data.ismatched = ismatched ? 1 : 0;
-            light_data.count = integer(L"light_count", 0, 0, 256);
+            light_data.count = integer(L"light_count", 0, 0, benchmark_light_limit);
             light_data.isdirectional = json.GetNamedBoolean(L"directional_light", light_data.count == 0) ? 1 : 0;
             if (!ismatched && light_data.count != 0) throw std::runtime_error("Point lights require matched_quality.");
             const auto center = vector(json, L"light_center", {0,0,-4});
@@ -173,6 +189,10 @@ public:
             const float power = static_cast<float>(json.GetNamedNumber(L"point_intensity", 30));
             if (!std::isfinite(radius) || radius <= 0 || radius > 100000 || !std::isfinite(power) || power < 0 || power > 1000000 ||
                 extent.x < 0 || extent.y < 0 || extent.z < 0) throw std::runtime_error("Invalid point light volume/intensity.");
+            const auto culling = json.GetNamedString(L"light_culling", L"none");
+            if (culling != L"none" && culling != L"tiled" && culling != L"clustered")
+                throw std::runtime_error("light_culling must be none, tiled or clustered.");
+            light_culling = culling == L"tiled" ? 1 : (culling == L"clustered" ? 2 : 0);
             UINT seed = integer(L"seed", 12345, 1, UINT_MAX);
             auto random = [&]() { seed ^= seed << 13; seed ^= seed >> 17; seed ^= seed << 5;
                 return static_cast<float>(seed & 0xffffff) / 16777215.0f * 2 - 1; };
@@ -184,11 +204,14 @@ public:
             }
             ui = {};
             ui.light_count = static_cast<int>(light_data.count);
+            ui.light_radius = radius;
+            ui.culling = static_cast<int>(light_culling);
+            ui.isheatmap = json.GetNamedBoolean(L"light_heatmap", false);
             ui.isinstancing = isinstancing;
             ui.islocked = isautomated;
             ui.objects = objects.size();
             ui.profile = ismatched ? "matched_quality" : "native";
-            ui.study = static_cast<int>(integer(L"study", 0, 0, 2));
+            ui.study = static_cast<int>(integer(L"study", 0, 0, 3));
             ui.workload = static_cast<int>(integer(L"workload", 0, 0, 1));
             ui.iscached = json.GetNamedBoolean(L"descriptor_cache", true);
             ui.iscompact = json.GetNamedBoolean(L"compact_gbuffer", false);
@@ -214,7 +237,7 @@ public:
                 ui.reference = {mean(L"prepare_cpu_ms"), mean(L"record_cpu_ms"), mean(L"gpu_ms"),
                     mean(L"mesh_gpu_ms"), mean(L"lighting_gpu_ms"), static_cast<size_t>(mean(L"mesh_draw_calls")),
                     static_cast<size_t>(mean(L"srv_writes")), static_cast<size_t>(reference.GetNamedNumber(L"frames")),
-                    mean(L"gbuffer_payload_mib")};
+                    mean(L"gbuffer_payload_mib"), mean(L"culling_gpu_ms")};
                 ui.reference_label = winrt::to_string(input.GetNamedString(L"label", reference.GetNamedString(L"renderer")));
                 ui.reference_renderer = winrt::to_string(reference.GetNamedString(L"renderer"));
                 ui.isreference = true;

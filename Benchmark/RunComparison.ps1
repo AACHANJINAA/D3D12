@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [ValidateRange(1,50000)][int[]]$ObjectCounts = @(1000),
-    [ValidateRange(0,256)][int[]]$LightCounts = @(0,8,32),
+    [ValidateRange(0,1024)][int[]]$LightCounts = @(0,8,32),
     [ValidateSet('Batched','Unbatched')][string[]]$Modes = @('Batched','Unbatched'),
     [ValidateSet('Dispersed','Overlap')][string]$Distribution = 'Dispersed',
     [ValidateRange(1,20)][int]$Repeats = 3,

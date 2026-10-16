@@ -18,6 +18,9 @@ class GBUFFER_RENDER_PASS
 {
 public:
     static constexpr UINT target_count = 5;
+    // Read by the Deferred lighting pixel shader and the light culling compute shader.
+    static constexpr D3D12_RESOURCE_STATES read_state =
+        D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE;
     static constexpr DXGI_FORMAT formats[target_count] = {
         DXGI_FORMAT_R8G8B8A8_UNORM,
         DXGI_FORMAT_R16G16B16A16_FLOAT,

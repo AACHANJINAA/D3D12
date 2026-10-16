@@ -7,27 +7,34 @@ struct BENCHMARK_POINT_LIGHT
     MATH::VECTOR4 radiance{};
 };
 
+// Matches the 32-word light bitmask per tile/cluster in LightCullingCommon.hlsli.
+constexpr UINT benchmark_light_limit = 1024;
+
 struct BENCHMARK_LIGHT_DATA
 {
     UINT count = 0, ismatched = 0, isdirectional = 1;
     float environment = 1;
-    std::array<BENCHMARK_POINT_LIGHT, 256> points{};
+    std::array<BENCHMARK_POINT_LIGHT, benchmark_light_limit> points{};
     UINT iscompact = 0;
     float viewport_width = 1, viewport_height = 1, padding = 0;
     MATH::MATRIX4X4 inverse_view_projection{};
 };
-static_assert(sizeof(BENCHMARK_POINT_LIGHT) == 32 && sizeof(BENCHMARK_LIGHT_DATA) == 8288);
+static_assert(sizeof(BENCHMARK_POINT_LIGHT) == 32 && sizeof(BENCHMARK_LIGHT_DATA) == 32864);
 
 struct COMPARISON_VALUES
 {
     double prepare = 0, record = 0, gpu = 0, mesh = 0, light = 0;
     size_t draws = 0, srvs = 0, frames = 0;
     double gbuffer_mib = 0;
+    double culling = 0;
 };
 
 struct BENCHMARK_UI_STATE
 {
     int light_count = 0;
+    float light_radius = 15;
+    int culling = 0;  // LIGHT_CULLING
+    bool isheatmap = false;
     bool isinstancing = true, islocked = false;
     size_t objects = 0, draws = 0;
     double prepare_ms = 0, record_ms = 0, gpu_ms = 0, mesh_ms = 0, lighting_ms = 0;

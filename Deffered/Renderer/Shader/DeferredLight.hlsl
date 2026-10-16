@@ -2,7 +2,10 @@
 #define BENCH_SPECULAR specular_environment_texture
 #define BENCH_BRDF brdf_lut
 #define BENCH_SAMPLER texture_sampler
+#define BENCH_LIGHT_MASKS light_masks
+StructuredBuffer<uint> light_masks : register(t8);
 #include "Benchmark/MatchedLighting.hlsli"
+#include "LightCullingCommon.hlsli"
 
 Texture2D<float4> gbuffer_albedo : register(t0);
 Texture2D<float4> gbuffer_normal : register(t1);
@@ -12,6 +15,24 @@ Texture2D<float4> gbuffer_position : register(t4);
 
 #include "SelectionOutline.hlsli"
 #include "GBufferDebug.hlsli"
+
+// Lights the pixel's cell may touch; the full loop counts every light.
+uint culled_light_count()
+{
+    if (bench_mask_base == 0xffffffff) return bench_count;
+    uint count = 0;
+    for (uint word = 0; word < (bench_count + 31) / 32; ++word)
+        count += countbits(light_masks[bench_mask_base + word]);
+    return count;
+}
+
+float3 heatmap_color(uint count)
+{
+    // 0 -> blue, 32 -> green, 64+ -> red.
+    float t = saturate(count / 64.0f);
+    float3 cold = float3(0.05f, 0.15f, 0.6f), warm = float3(0.1f, 0.85f, 0.2f), hot = float3(1.0f, 0.1f, 0.05f);
+    return t < 0.5f ? lerp(cold, warm, t * 2) : lerp(warm, hot, t * 2 - 1);
+}
 
 float4 VS_Deferred(uint vertex_id : SV_VertexID) : SV_POSITION
 {
@@ -51,8 +72,14 @@ float4 PS_Deferred(float4 position : SV_POSITION) : SV_TARGET
     }
     if (view_mode == 8) return float4(0.9f, 0.9f, 0.9f, 1);
     if (bench_matched)
-        return bench_shade(albedo, world.xyz, normal, material.x, max(material.y, .04), material.z,
+    {
+        if (culling_mode != 0)
+            bench_mask_base = culling_cell(position.xy, mul(float4(world.xyz, 1), culling_view).z) * LIGHT_MASK_WORDS;
+        float4 color = bench_shade(albedo, world.xyz, normal, material.x, max(material.y, .04), material.z,
             emissive, camera_position, light_direction, light_color * light_intensity);
+        if (culling_heatmap) color.rgb = lerp(color.rgb, heatmap_color(culled_light_count()), 0.7f);
+        return color;
+    }
     return shade_surface(albedo, world.xyz, normal, material.x,
         max(material.y, 0.04f), material.z, emissive);
 }

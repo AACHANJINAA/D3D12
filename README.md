@@ -232,7 +232,7 @@ Deffered/                     # 주 개발 프로젝트
     Renderer.*                # 초기화와 패스 조립
     SceneRenderData.*         # Draw·인스턴스·상수 데이터
     Manager/                  # Camera, Input, Light, Resource 관리
-    Pass/                     # GBuffer, Skybox, DeferredLight, PipForward(분할 비교용)
+    Pass/                     # GBuffer, Skybox, DeferredLight, LightCulling(Tiled/Clustered), PipForward(분할 비교용)
     Shader/                   # PBR·G-buffer·조명·디버그 HLSL
   PipReference/               # S.T.L PIP 원본 스냅샷과 Forward 포팅 노트 (빌드 대상 아님)
   Resource/                   # glTF 파싱, 메시·재질·텍스처와 캐시
@@ -277,12 +277,47 @@ Forward 경로는 S.T.L 전체 게임의 무수정 복사본이 아니라 정적
 ```
 
 계측에는 CPU 준비·기록 시간, GPU 타임스탬프, Draw·SRV 쓰기 횟수와 CSV/JSON 출력이 포함됩니다.
-비교 모드에서는 컬링을 제외한 조건을 사용합니다.
+비교 모드에서는 객체 컬링을 제외한 조건을 사용합니다.
+
+### Tiled · Clustered 광원 컬링 비교
+
+비교 경로의 Deferred는 Point Light 루프를 세 방식 중 하나로 실행합니다. 최대 광원 수는 1024개입니다.
+
+| 변형 | 실행 인자 | 방식 |
+| --- | --- | --- |
+| 전체 루프 | (없음) | 모든 픽셀이 모든 광원을 순회 |
+| Tiled | `--tiled` | 16×16 px 타일마다 G-buffer 깊이 최소·최대 범위로 광원을 고름 |
+| Clustered | `--clustered` | 16×9 화면 셀 × 24 지수 깊이 슬라이스마다 광원을 고름 |
+
+```text
+G-buffer → Light Culling (Compute, LightCullingPass) → Skybox → Deferred Lighting → UI
+```
+
+- 셀마다 1024비트 마스크를 기록하고 Lighting은 켜진 비트만 오름차순으로 순회합니다.
+  목록 크기 상한이 없고, 더하는 순서가 전체 루프와 같습니다.
+- 반경 밖 광원은 감쇠가 정확히 0이므로 결과가 바뀌지 않습니다.
+  `--capture`로 저장한 화면을 비교하면 세 변형의 차이 픽셀이 0개였습니다(1280×720, 광원 256개).
+- 비교 UI의 `4 LIGHT CULLING`에서 방식, 광원 수, 반경을 실시간으로 바꾸고 **Light count heatmap**으로 셀당 광원 수를 봅니다.
+  `Store live A`로 한 방식을 저장한 뒤 다른 방식으로 바꾸면 `Light culling ms`·`Lighting ms`를 나란히 비교합니다.
+- JSON에서는 `"light_culling": "none" | "tiled" | "clustered"`, `"light_heatmap": true`를 쓸 수 있으며 실행 인자가 우선합니다.
+- Forward는 항상 전체 루프입니다. 일반 뷰어에는 Point Light가 없어 이 기능을 쓰지 않습니다.
+
+```powershell
+& .\Deffered\bin\x64\Release\Deffered.exe --tiled --benchmark .\Benchmark\comparison.json
+& .\Deffered\bin\x64\Release\Deffered.exe --clustered --benchmark .\Benchmark\comparison.json --capture .\clustered.bmp
+& .\Benchmark\RunLightCullingStudy.ps1            # Forward / 전체 / Tiled / Clustered 반복 측정 → results/<id>/report.html
+& .\Benchmark\RunLightCullingStudy.ps1 -Smoke     # 빠른 동작 확인용, 성능 근거 아님
+```
+
+`--capture <파일.bmp>`는 120번째 프레임을 UI 없이 저장하고, 시간 측정이 없는 실행이면 저장 후 종료합니다.
+원리와 Tiled·Clustered의 차이는 [학습 노트 19장](Base_MD/docs/FORWARD_DEFERRED_STUDY.md#s19)에 정리했습니다.
 과거 실행 결과는 해당 장면·설정에 한정되며 원본 S.T.L 대비 성능 개선이나 모든 장면에서의 우위를 의미하지 않습니다.
 
 확인 기록:
 
 - 2026-10-05: 두 프로젝트 Debug/Release x64 빌드, Deferred 및 G-buffer 관련 셰이더 컴파일 통과.
+- 2026-10-16: Tiled/Clustered 추가 후 Debug/Release x64 빌드, Debug Layer 오류 0건으로 4개 변형 측정 완료,
+  전체 루프 대비 Tiled·Clustered 캡처 차이 픽셀 0개.
 - 사용자가 촬영한 `Capture`의 Lit·Compact Overview 화면 확인.
 - 캡처 확인은 모든 Import 입력, GPU, 창 크기에서의 정확성 검증을 대신하지 않습니다.
 
@@ -300,7 +335,7 @@ Full/Compact 전환, 창 크기 변경·전체화면, Debug Layer 오류 확인 
 - Device Lost 복구와 자동 GPU 검증 확대
 
 비교 경로의 Point Light 실험과 일반 뷰어의 광원 편집 기능은 별개입니다.
-Tiled/Clustered Deferred나 완성된 상용 게임 엔진을 구현한 것으로 설명하지 않습니다.
+Tiled/Clustered는 비교 경로의 Point Light 루프에만 적용한 학습용 구현이며, 완성된 상용 게임 엔진으로 설명하지 않습니다.
 
 ## 코드 컨벤션
 

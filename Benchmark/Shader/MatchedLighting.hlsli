@@ -7,11 +7,19 @@ cbuffer BENCH_LIGHTS : register(b6)
     uint bench_matched;
     uint bench_directional;
     float bench_environment;
-    BENCH_POINT bench_points[256];
+    BENCH_POINT bench_points[1024];
     uint bench_compact;
     float bench_width, bench_height, bench_padding;
     row_major float4x4 bench_inverse_view_projection;
 };
+
+// Compute passes only need the light data above.
+#ifndef BENCH_LIGHTS_ONLY
+#ifdef BENCH_LIGHT_MASKS
+// Tiled/Clustered shading sets this to the pixel's cell. The cell list is a bitmask walked in
+// ascending light order, so the sum matches the full loop; culled lights contribute exactly zero.
+static uint bench_mask_base = 0xffffffff;
+#endif
 
 float3 bench_brdf(float3 albedo, float3 n, float3 v, float3 l, float metallic, float roughness)
 {
@@ -25,6 +33,17 @@ float3 bench_brdf(float3 albedo, float3 n, float3 v, float3 l, float metallic, f
     float k = (roughness + 1) * (roughness + 1) / 8;
     float g = nv / max(nv * (1 - k) + k, 1e-6) * nl / max(nl * (1 - k) + k, 1e-6);
     return ((1 - f) * (1 - metallic) * albedo / 3.14159265 + d * f * g / max(4 * nv * nl, 1e-5)) * nl;
+}
+
+float3 bench_point(uint i, float3 albedo, float3 world, float3 n, float3 v, float metallic, float roughness)
+{
+    float3 delta = bench_points[i].position_radius.xyz - world;
+    float distance2 = dot(delta, delta);
+    float radius = bench_points[i].position_radius.w;
+    float falloff = saturate(1 - distance2 / (radius * radius));
+    float attenuation = falloff * falloff / max(distance2, 1.0);
+    return bench_brdf(albedo, n, v, delta * rsqrt(max(distance2, 1e-8)), metallic, roughness) *
+        bench_points[i].radiance.rgb * attenuation;
 }
 
 float3 bench_irradiance(float3 n)
@@ -49,17 +68,24 @@ float4 bench_shade(float4 albedo, float3 world, float3 n, float metallic, float 
     float3 color = 0;
     if (bench_directional)
         color = bench_brdf(albedo.rgb, n, v, normalize(-direction), metallic, roughness) * directional_radiance;
-    // Identical full light loop in both paths; no tile, distance or light-list culling.
-    [loop] for (uint i = 0; i < bench_count; ++i)
+#ifdef BENCH_LIGHT_MASKS
+    if (bench_mask_base != 0xffffffff)
     {
-        float3 delta = bench_points[i].position_radius.xyz - world;
-        float distance2 = dot(delta, delta);
-        float radius = bench_points[i].position_radius.w;
-        float falloff = saturate(1 - distance2 / (radius * radius));
-        float attenuation = falloff * falloff / max(distance2, 1.0);
-        color += bench_brdf(albedo.rgb, n, v, delta * rsqrt(max(distance2, 1e-8)), metallic, roughness) *
-            bench_points[i].radiance.rgb * attenuation;
+        [loop] for (uint word = 0; word < (bench_count + 31) / 32; ++word)
+        {
+            uint bits = BENCH_LIGHT_MASKS[bench_mask_base + word];
+            [loop] while (bits != 0)
+            {
+                color += bench_point(word * 32 + firstbitlow(bits), albedo.rgb, world, n, v, metallic, roughness);
+                bits &= bits - 1;
+            }
+        }
     }
+    else
+#endif
+    // Full light loop shared by Forward and untiled Deferred; no distance or light-list culling.
+    [loop] for (uint i = 0; i < bench_count; ++i)
+        color += bench_point(i, albedo.rgb, world, n, v, metallic, roughness);
     float nv = saturate(dot(n, v));
     float3 f0 = lerp(0.04.xxx, albedo.rgb, metallic);
     float3 f = f0 + (1 - f0) * pow(1 - nv, 5);
@@ -70,4 +96,5 @@ float4 bench_shade(float4 albedo, float3 world, float3 n, float metallic, float 
     color = max(color + emissive, 0);
     return float4(pow(color / (1 + color), 1.0 / 2.2), albedo.a);
 }
+#endif
 #endif

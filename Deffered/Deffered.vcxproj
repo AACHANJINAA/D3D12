@@ -193,6 +193,10 @@
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>..\..\Common\stdafx.h</PrecompiledHeaderFile>
     </ClCompile>
+    <ClCompile Include="Renderer\Pass\LightCullingPass.cpp">
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>..\..\Common\stdafx.h</PrecompiledHeaderFile>
+    </ClCompile>
     <ClCompile Include="Renderer\Pass\PipForwardPass.cpp">
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>..\..\Common\stdafx.h</PrecompiledHeaderFile>
@@ -267,6 +271,7 @@
     <ClInclude Include="Renderer\ViewerSettings.h" />
     <ClInclude Include="Renderer\Pass\GBufferRenderPass.h" />
     <ClInclude Include="Renderer\Pass\DeferredLightPass.h" />
+    <ClInclude Include="Renderer\Pass\LightCullingPass.h" />
     <ClInclude Include="Renderer\Pass\PipForwardPass.h" />
     <ClInclude Include="Renderer\Manager\CameraManager.h" />
     <ClInclude Include="Renderer\Manager\InputManager.h" />
@@ -320,6 +325,9 @@
     <None Include="Renderer\Shader\Pip\IBL.hlsl" />
     <None Include="Renderer\Shader\Pip\Shadow_Sample.hlsl" />
     <None Include="Renderer\Shader\Pip\MatchedForward.hlsl" />
+    <None Include="Renderer\Shader\LightCulling.hlsl" />
+    <None Include="Renderer\Shader\LightCullingCommon.hlsli" />
+    <None Include="Renderer\Shader\GBufferWorld.hlsli" />
     <None Include="..\Asset\Skybox\cloudy\cloudy_skybox.dds">
       <Link>Asset\Skybox\cloudy\cloudy_skybox.dds</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>

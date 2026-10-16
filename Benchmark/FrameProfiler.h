@@ -9,7 +9,7 @@ struct FRAME_MEASUREMENTS
     UINT64 frame_id = 0;
     double frame_ms = 0, frame_interval_ms = 0, prepare_ms = 0, record_ms = 0;
     double submit_ms = 0, present_ms = 0, sync_ms = 0;
-    double gpu_ms = 0, mesh_gpu_ms = 0, lighting_gpu_ms = 0, sky_gpu_ms = 0, ui_gpu_ms = 0;
+    double gpu_ms = 0, mesh_gpu_ms = 0, lighting_gpu_ms = 0, sky_gpu_ms = 0, ui_gpu_ms = 0, culling_gpu_ms = 0;
     size_t draws = 0, instances = 0, triangles = 0, srv_writes = 0;
     double gbuffer_mib = 0;
     UINT lights = 0;
@@ -19,7 +19,8 @@ struct FRAME_MEASUREMENTS
 class FRAME_PROFILER
 {
 public:
-    static constexpr UINT slot_count = 2, query_count = 10;
+    // Pairs: total, mesh, sky, lighting, UI, light culling (written every frame, empty when unused).
+    static constexpr UINT slot_count = 2, query_count = 12;
     static double now()
     {
         static const double frequency = [] { LARGE_INTEGER value; QueryPerformanceFrequency(&value); return static_cast<double>(value.QuadPart); }();
@@ -53,10 +54,12 @@ public:
         _metadata = JsonObject();
         auto string = [&](const wchar_t* name, const std::string& value) { _metadata.SetNamedValue(name, JsonValue::CreateStringValue(winrt::to_hstring(value))); };
         string(L"renderer", renderer);
+        const char* cullings[] = { "none", "tiled_16px_depth_bounds", "clustered_16x9x24" };
+        string(L"light_culling", _isforward ? "none" : cullings[(std::min)(scene.light_culling, 2u)]);
         string(L"profile", scene.ismatched ? "matched_quality" : "native");
         string(L"quality_status", "shared_lighting_equations_gbuffer_quantization_differs_not_pixel_certified");
         string(L"cpu_scope", "frame=post-UI render preparation through slot wait; interval=between preparations including UI; prepare=batching/counts/light upload; record=allocator reset through close; submit=ExecuteCommandLists; sync=signal and slot wait");
-        string(L"gpu_scope", "timestamp total includes clear/barriers/mesh/sky/light/comparison UI; excludes Present and query resolve");
+        string(L"gpu_scope", "timestamp total includes clear/barriers/mesh/light culling/sky/light/comparison UI; excludes Present and query resolve");
         _metadata.SetNamedValue(L"scene", JsonObject::Parse(winrt::to_hstring(scene.source_json)));
         _metadata.SetNamedValue(L"frames_in_flight", JsonValue::CreateNumberValue(2));
         _metadata.SetNamedValue(L"timestamp_frequency", JsonValue::CreateNumberValue(static_cast<double>(_frequency)));
@@ -165,7 +168,7 @@ public:
         if (_samples.empty()) issuccess = false;
         std::sort(_samples.begin(), _samples.end(), [](const auto& a, const auto& b) { return a.frame_id < b.frame_id; });
         std::ofstream csv(_path.string() + ".csv");
-        csv << "frame_id,frame_ms,frame_interval_ms,prepare_cpu_ms,record_cpu_ms,submit_cpu_ms,present_cpu_ms,sync_cpu_ms,gpu_ms,mesh_gpu_ms,lighting_gpu_ms,sky_gpu_ms,ui_gpu_ms,mesh_draw_calls,primitive_instances,triangles,point_lights,queue_submissions,srv_writes,gbuffer_payload_mib\n";
+        csv << "frame_id,frame_ms,frame_interval_ms,prepare_cpu_ms,record_cpu_ms,submit_cpu_ms,present_cpu_ms,sync_cpu_ms,gpu_ms,mesh_gpu_ms,lighting_gpu_ms,sky_gpu_ms,ui_gpu_ms,mesh_draw_calls,primitive_instances,triangles,point_lights,queue_submissions,srv_writes,gbuffer_payload_mib,culling_gpu_ms\n";
         csv << std::fixed << std::setprecision(6);
         for (const auto& sample : _samples)
         {
@@ -173,7 +176,9 @@ public:
                 << sample.submit_ms << ',' << sample.present_ms << ',' << sample.sync_ms << ',' << sample.gpu_ms << ',' << sample.mesh_gpu_ms << ',';
             if (!_isforward) csv << sample.lighting_gpu_ms;
             csv << ',' << sample.sky_gpu_ms << ',' << sample.ui_gpu_ms << ',' << sample.draws << ',' << sample.instances << ','
-                << sample.triangles << ',' << sample.lights << ",1," << sample.srv_writes << ',' << sample.gbuffer_mib << '\n';
+                << sample.triangles << ',' << sample.lights << ",1," << sample.srv_writes << ',' << sample.gbuffer_mib << ',';
+            if (!_isforward) csv << sample.culling_gpu_ms;
+            csv << '\n';
         }
         csv.flush();
         if (!csv) issuccess = false;
@@ -204,6 +209,7 @@ public:
         metric(L"gpu_ms", [](const auto& s) { return s.gpu_ms; });
         metric(L"mesh_gpu_ms", [](const auto& s) { return s.mesh_gpu_ms; });
         if (!_isforward) metric(L"lighting_gpu_ms", [](const auto& s) { return s.lighting_gpu_ms; });
+        if (!_isforward) metric(L"culling_gpu_ms", [](const auto& s) { return s.culling_gpu_ms; });
         metric(L"ui_gpu_ms", [](const auto& s) { return s.ui_gpu_ms; });
         metric(L"sky_gpu_ms", [](const auto& s) { return s.sky_gpu_ms; });
         metric(L"mesh_draw_calls", [](const auto& s) { return static_cast<double>(s.draws); });
@@ -243,6 +249,7 @@ private:
         frame.data.sky_gpu_ms = milliseconds(4);
         frame.data.lighting_gpu_ms = milliseconds(6);
         frame.data.ui_gpu_ms = milliseconds(8);
+        frame.data.culling_gpu_ms = milliseconds(10);
         _latest = frame.data;
         if (!_isfinished)
         {
@@ -267,7 +274,7 @@ private:
     static void accumulate(COMPARISON_VALUES& sum, const FRAME_MEASUREMENTS& frame)
     {
         sum.prepare += frame.prepare_ms; sum.record += frame.record_ms; sum.gpu += frame.gpu_ms;
-        sum.mesh += frame.mesh_gpu_ms; sum.light += frame.lighting_gpu_ms;
+        sum.mesh += frame.mesh_gpu_ms; sum.light += frame.lighting_gpu_ms; sum.culling += frame.culling_gpu_ms;
         sum.draws += frame.draws; sum.srvs += frame.srv_writes; sum.gbuffer_mib += frame.gbuffer_mib; ++sum.frames;
     }
     static void average(COMPARISON_VALUES& sum)
@@ -275,7 +282,7 @@ private:
         if (!sum.frames) return;
         const double count = static_cast<double>(sum.frames);
         sum.prepare /= count; sum.record /= count; sum.gpu /= count; sum.mesh /= count;
-        sum.light /= count; sum.gbuffer_mib /= count; sum.draws /= sum.frames; sum.srvs /= sum.frames;
+        sum.light /= count; sum.culling /= count; sum.gbuffer_mib /= count; sum.draws /= sum.frames; sum.srvs /= sum.frames;
     }
     COMPARISON_VALUES _rolling{}, _published{};
     double _publish_time = 0;

@@ -9,16 +9,18 @@ inline void draw_comparison_ui(BENCHMARK_UI_STATE& state)
     ImGui::Begin("RENDERER LAB", nullptr, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
         ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_AlwaysAutoResize);
     ImGui::Text("%s  |  %u x %u", state.renderer, state.width, state.height);
-    ImGui::Text("Objects %llu   Lights %d   Culling OFF",
+    // "Culling" is object culling; light culling is the separate Tiled/Clustered study.
+    ImGui::Text("Objects %llu   Lights %d   Object culling OFF",
         static_cast<unsigned long long>(state.objects), state.light_count);
-    const char* studies[] = {"1 CPU", "2 G-BUFFER", "3 FORWARD / DEFERRED"};
+    const char* studies[] = {"1 CPU", "2 G-BUFFER", "3 FORWARD / DEFERRED", "4 LIGHT CULLING  (none / tiled / clustered)"};
     ImGui::BeginDisabled(state.islocked);
-    for (int index = 0; index < 3; ++index)
+    for (int index = 0; index < 4; ++index)
     {
-        if (index) ImGui::SameLine();
+        if (index == 1 || index == 2) ImGui::SameLine();
         if (state.study == index) ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(.18f,.38f,.55f,1));
         const bool isselected = state.study == index;
-        if (ImGui::Button(studies[index], {index == 0 ? 70.0f : (index == 1 ? 100.0f : 223.0f), 25}))
+        const float width = index == 0 ? 70.0f : (index == 1 ? 100.0f : (index == 2 ? 223.0f : -FLT_MIN));
+        if (ImGui::Button(studies[index], {width, 25}))
         { state.study = index; state.isreference = false; }
         if (isselected) ImGui::PopStyleColor();
     }
@@ -42,16 +44,33 @@ inline void draw_comparison_ui(BENCHMARK_UI_STATE& state)
         ImGui::RadioButton("Depth", &state.view, 7);
         ImGui::EndDisabled();
     }
-    else
+    else if (state.study == 2)
     {
         if (ImGui::RadioButton("Low overlap", state.workload == 0))
         { state.workload = 0; state.isreference = false; }
         ImGui::SameLine();
         if (ImGui::RadioButton("20 layers / far-first", state.workload == 1))
         { state.workload = 1; state.isreference = false; }
-        ImGui::Text("%3d", state.light_count); ImGui::SameLine();
+        ImGui::Text("%4d", state.light_count); ImGui::SameLine();
         ImGui::SetNextItemWidth(245);
-        if (ImGui::SliderInt("Lights", &state.light_count, 0, 256, "")) state.isreference = false;
+        if (ImGui::SliderInt("Lights", &state.light_count, 0, 1024, "")) state.isreference = false;
+    }
+    else
+    {
+        // Forward keeps the full loop; the culling variants replace only the Deferred light loop.
+        ImGui::BeginDisabled(isforward);
+        ImGui::RadioButton("Full loop", &state.culling, 0); ImGui::SameLine();
+        ImGui::RadioButton("Tiled 16 px", &state.culling, 1); ImGui::SameLine();
+        ImGui::RadioButton("Clustered 16x9x24", &state.culling, 2);
+        ImGui::Checkbox("Light count heatmap  (blue 0 / green 32 / red 64+)", &state.isheatmap);
+        ImGui::EndDisabled();
+        ImGui::Text("%4d", state.light_count); ImGui::SameLine();
+        ImGui::SetNextItemWidth(245);
+        if (ImGui::SliderInt("Lights", &state.light_count, 0, 1024, "")) state.isreference = false;
+        ImGui::Text("%4.1f", state.light_radius); ImGui::SameLine();
+        ImGui::SetNextItemWidth(245);
+        if (ImGui::SliderFloat("Radius", &state.light_radius, 0.5f, 30.0f, "", ImGuiSliderFlags_Logarithmic))
+            state.isreference = false;
     }
     ImGui::EndDisabled();
     ImGui::Separator();
@@ -83,8 +102,10 @@ inline void draw_comparison_ui(BENCHMARK_UI_STATE& state)
         row("CPU prepare ms", a.prepare, b.prepare);
         row("CPU record ms", a.record, b.record);
         row("GPU total ms", a.gpu, b.gpu);
-        const bool issame_renderer = state.reference_renderer == state.renderer;
+        // Pass rows are comparable between Deferred variants, not between Forward and Deferred.
+        const bool issame_renderer = (state.reference_renderer == "Forward") == isforward;
         row(isforward ? "Mesh + light ms" : "G-buffer ms", issame_renderer ? a.mesh : NAN, b.mesh);
+        if (!isforward) row("Light culling ms", issame_renderer ? a.culling : NAN, b.culling);
         if (!isforward) row("Lighting ms", issame_renderer ? a.light : NAN, b.light);
         row("Mesh draws", static_cast<double>(a.draws), static_cast<double>(b.draws), true);
         row("SRV writes / frame", static_cast<double>(a.srvs), static_cast<double>(b.srvs), true);

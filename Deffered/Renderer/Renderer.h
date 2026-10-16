@@ -10,6 +10,7 @@
 #include "Pass/DeferredLightPass.h"
 #include "Pass/SkyboxRenderPass.h"
 #include "Pass/PipForwardPass.h"
+#include "Pass/LightCullingPass.h"
 #include "../Resource/ModelResource.h"
 #include <memory>
 #include "../Resource/Texture.h"
@@ -40,7 +41,16 @@ private:
     bool create_swap_chain();
     bool create_render_targets();
     bool is_forward_benchmark() const { return _benchmark.isenabled && _benchmark.isforward; }
-    const char* renderer_name() const { return is_forward_benchmark() ? "Forward" : "Deffered"; }
+    static const char* deferred_name(int culling)
+    {
+        return culling == static_cast<int>(LIGHT_CULLING::tiled) ? "Deffered-Tiled"
+            : (culling == static_cast<int>(LIGHT_CULLING::clustered) ? "Deffered-Clustered" : "Deffered");
+    }
+    // Fixed at startup; names the profiler output files.
+    const char* renderer_name() const
+    {
+        return is_forward_benchmark() ? "Forward" : deferred_name(static_cast<int>(_benchmark.light_culling));
+    }
     bool create_gbuffer_targets();
     bool update_deferred_resources();
     bool resize_swap_chain();
@@ -54,6 +64,8 @@ private:
     void toggle_fullscreen();
     bool wait_for_gpu();
     void move_to_next_frame();
+    bool record_capture();
+    bool write_capture();
     void shutdown();
 
     HINSTANCE _instance = nullptr;
@@ -73,6 +85,7 @@ private:
     ComPtr<ID3D12GraphicsCommandList> _command_list;
     GBUFFER_RENDER_PASS _gbuffer_render_pass;
     DEFERRED_LIGHT_PASS _deferred_light_pass;
+    LIGHT_CULLING_PASS _light_culling_pass;
     SKYBOX_RENDER_PASS _skybox_render_pass;
     PIP_FORWARD_PASS _forward_pass;
     SCENE _scene;
@@ -87,6 +100,9 @@ private:
     BENCHMARK_SCENE _benchmark;
     BENCHMARK_LIGHT_BUFFER _benchmark_lights;
     FRAME_PROFILER _profiler;
+    ComPtr<ID3D12Resource> _capture_readback;
+    D3D12_PLACED_SUBRESOURCE_FOOTPRINT _capture_footprint{};
+    UINT64 _benchmark_frames = 0;
     ComPtr<ID3D12Fence> _fence;
     UINT64 _fence_value = 0;
     HANDLE _fence_event = nullptr;

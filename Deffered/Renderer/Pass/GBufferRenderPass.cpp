@@ -117,7 +117,7 @@ bool GBUFFER_RENDER_PASS::resize(ID3D12Device* device, UINT width, UINT height, 
         D3D12_CLEAR_VALUE clear{};
         clear.Format = active_formats[index];
         if (FAILED(device->CreateCommittedResource(&properties, D3D12_HEAP_FLAG_NONE,
-            &description, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
+            &description, read_state,
             &clear, IID_PPV_ARGS(&_targets[index]))))
             return false;
         device->CreateRenderTargetView(_targets[index].Get(), nullptr, handle);
@@ -138,7 +138,7 @@ void GBUFFER_RENDER_PASS::render(ID3D12GraphicsCommandList* list,
     std::array<D3D12_RESOURCE_BARRIER, target_count> barriers{};
     for (UINT index = 0; index < target_count; ++index)
         barriers[index] = CD3DX12_RESOURCE_BARRIER::transition(_targets[index].Get(),
-            D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, D3D12_RESOURCE_STATE_RENDER_TARGET);
+            read_state, D3D12_RESOURCE_STATE_RENDER_TARGET);
     list->ResourceBarrier(target_count, barriers.data());
     auto handle = _rtv_heap->GetCPUDescriptorHandleForHeapStart();
     list->OMSetRenderTargets(target_count, &handle, TRUE, &depth);
@@ -166,6 +166,6 @@ void GBUFFER_RENDER_PASS::render(ID3D12GraphicsCommandList* list,
     list->OMSetRenderTargets(0, nullptr, FALSE, nullptr);
     for (UINT index = 0; index < target_count; ++index)
         barriers[index] = CD3DX12_RESOURCE_BARRIER::transition(_targets[index].Get(),
-            D3D12_RESOURCE_STATE_RENDER_TARGET, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+            D3D12_RESOURCE_STATE_RENDER_TARGET, read_state);
     list->ResourceBarrier(target_count, barriers.data());
 }

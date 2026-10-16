@@ -1003,12 +1003,49 @@ Forward와 Deferred 양쪽에서 사용할 수 있으며 깊이 불연속이 큰
 분할 수와 목록 메모리·계산 비용 사이의 선택이 필요합니다.
 [Olsson 등, Clustered Deferred and Forward Shading](https://research.chalmers.se/publication/161725)
 
-### 19.5 현재 프로젝트와 구분
+### 19.5 현재 프로젝트의 구현
 
-현재 비교용 `bench_shade`는 광원 배열 전체를 순회합니다.
-Point Light의 거리 감쇠는 계산하지만 타일·클러스터 광원 목록으로 평가 대상 자체를 줄이지는 않습니다.
-따라서 현재 결과를 최적화된 모든 Deferred 또는 Forward+의 대표 성능이라고 해석하지 않습니다.
-일반 뷰어의 Directional Light·IBL과 비교용 다중 Point Light 경로도 구분합니다.
+비교 경로(`--benchmark`)의 Deferred에는 광원 루프가 세 가지 있습니다.
+Forward(`--forward`)는 항상 전체 루프입니다. 일반 뷰어에는 Point Light가 없으므로 이 선택이 적용되지 않습니다.
+
+| 변형 | 실행 인자 | 셀 | 깊이 범위 | 코드 |
+| --- | --- | --- | --- | --- |
+| 전체 루프 | (없음) | 없음 | - | `bench_shade`의 기본 루프 |
+| Tiled | `--tiled` | 16×16 픽셀 타일 | 타일 안 G-buffer 표면의 최소·최대 view z | `LightCulling.hlsl`의 `CS_Tiled` |
+| Clustered | `--clustered` | 16×9 화면 셀 × 24 깊이 슬라이스 | 장면 경계 사이를 지수 분할, G-buffer를 읽지 않음 | `CS_Clustered` |
+
+프레임 순서:
+
+```text
+G-buffer → Light Culling (Compute) → Skybox → Deferred Lighting → UI
+```
+
+**광원 목록 대신 비트마스크.** 셀마다 `1024 / 32 = 32`개의 `uint`를 두고 광원 i가 닿으면 i번째 비트를 켭니다.
+
+- 셀당 목록 크기 상한이 없어 넘침 처리가 필요 없습니다(셀당 128 B, 1080p 타일 8,160개 ≈ 1 MB).
+- Lighting은 `firstbitlow`로 켜진 비트만 오름차순으로 순회합니다. 전체 루프와 **더하는 순서가 같습니다.**
+- 감쇠 `saturate(1 - d²/r²)`는 반경 밖에서 정확히 0이므로, 반경 밖 광원을 건너뛰어도 결과가 변하지 않습니다.
+
+그래서 세 변형의 Lit 화면은 같아야 합니다. `--capture`로 저장한 1280×720 화면을 비교했을 때 차이 나는 픽셀이 0개였습니다
+(400개 헬멧, 256개 광원, 반경 3, Compact G-buffer, 2026-10-16).
+
+**셀 경계 계산.** View 공간에서 `x = ndc.x · z / P00`는 ndc와 z 각각에 대해 선형입니다.
+따라서 셀의 화면 사각형을 z 최소·최대에서 펼친 8개 꼭짓점의 AABB가 그 절두체 조각을 감쌉니다.
+광원 구와 AABB 사이 거리가 반경 이하이면 포함합니다. 위치 복원 오차를 흡수하도록 작은 여유를 둡니다.
+
+**Tiled와 Clustered가 다른 점.**
+
+- Tiled는 실제 표면 깊이로 범위를 좁혀서, 표면이 한 평면에 모인 장면에서는 셀당 광원 수가 매우 적습니다.
+- 한 타일에 가까운 물체 테두리와 먼 배경이 섞이면 깊이 범위가 그 사이 전체로 넓어집니다.
+- Clustered는 깊이를 미리 나누므로 이런 불연속에 덜 민감하지만, 화면 셀이 크고(1280×720에서 80×80 px)
+  슬라이스가 표면에 맞춰지지 않아 평평한 장면에서는 Tiled보다 셀당 광원이 많을 수 있습니다.
+- 비교 UI의 **Light count heatmap**은 셀이 고른 광원 수를 색으로 보여 줍니다(파랑 0, 초록 32, 빨강 64+).
+
+**측정.** `Benchmark/RunLightCullingStudy.ps1`이 Forward, 전체 루프, Tiled, Clustered를
+같은 장면(평면 `Flat`과 20층 `Layers`), 광원 수, 반경에서 반복 측정합니다.
+`Light culling ms`는 Compute 분류 비용이고 `Lighting ms`는 분류 결과를 쓰는 조명 비용입니다. 둘을 더해서 비교합니다.
+결과는 해당 GPU·장면에 한정되며 상용 엔진의 Tiled/Clustered 구현을 대표하지 않습니다.
+투명 재질, 그림자, Spot Light와 Clustered Forward는 구현 범위 밖입니다.
 
 <a id="s20"></a>
 ## 20. 기법 선택과 변형
